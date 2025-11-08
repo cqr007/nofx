@@ -73,14 +73,38 @@ func NewDecisionLogger(logDir string) *DecisionLogger {
 		logDir = "decision_logs"
 	}
 
-	// 确保日志目录存在
-	if err := os.MkdirAll(logDir, 0755); err != nil {
+	// 确保日志目录存在（使用安全权限：只有所有者可访问）
+	if err := os.MkdirAll(logDir, 0700); err != nil {
 		fmt.Printf("⚠ 创建日志目录失败: %v\n", err)
 	}
+
+	// 强制设置目录权限（即使目录已存在）- 修复升级后权限问题
+	if err := os.Chmod(logDir, 0700); err != nil {
+		fmt.Printf("⚠ 设置日志目录权限失败: %v\n", err)
+	}
+
+	// 修复已存在的日志文件权限
+	fixExistingFilePermissions(logDir)
 
 	return &DecisionLogger{
 		logDir:      logDir,
 		cycleNumber: 0,
+	}
+}
+
+// fixExistingFilePermissions 修复已存在的JSON文件权限
+func fixExistingFilePermissions(logDir string) {
+	files, err := ioutil.ReadDir(logDir)
+	if err != nil {
+		return // 目录不存在或无法读取，忽略
+	}
+
+	for _, file := range files {
+		if !file.IsDir() && filepath.Ext(file.Name()) == ".json" {
+			filePath := filepath.Join(logDir, file.Name())
+			// 静默修复权限，不影响正常流程
+			_ = os.Chmod(filePath, 0600)
+		}
 	}
 }
 
@@ -103,8 +127,8 @@ func (l *DecisionLogger) LogDecision(record *DecisionRecord) error {
 		return fmt.Errorf("序列化决策记录失败: %w", err)
 	}
 
-	// 写入文件
-	if err := ioutil.WriteFile(filepath, data, 0644); err != nil {
+	// 写入文件（使用安全权限：只有所有者可读写）
+	if err := ioutil.WriteFile(filepath, data, 0600); err != nil {
 		return fmt.Errorf("写入决策记录失败: %w", err)
 	}
 
