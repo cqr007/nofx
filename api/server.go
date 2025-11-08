@@ -575,7 +575,6 @@ func (s *Server) handleCreateTrader(c *gin.Context) {
 			if balanceErr != nil {
 				log.Printf("⚠️ 查询交易所余额失败，使用用户输入的初始资金: %v", balanceErr)
 			} else {
-				// ✅ 修复：使用总资产（total equity）而不是可用余额来设置初始余额
 				// 总资产 = 钱包余额 + 未实现盈亏，这样才能正确计算总盈亏
 				totalWalletBalance := 0.0
 				totalUnrealizedProfit := 0.0
