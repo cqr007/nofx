@@ -648,6 +648,7 @@ func (tm *TraderManager) getConcurrentTraderData(traders []*trader.AutoTrader) [
 					"position_count":  account["position_count"],
 					"margin_used_pct": account["margin_used_pct"],
 					"is_running":      status["is_running"],
+					"system_prompt_template": trader.GetSystemPromptTemplate(),
 				}
 			case err := <-errorChan:
 				// 获取账户信息失败
@@ -663,6 +664,7 @@ func (tm *TraderManager) getConcurrentTraderData(traders []*trader.AutoTrader) [
 					"position_count":  0,
 					"margin_used_pct": 0.0,
 					"is_running":      status["is_running"],
+					"system_prompt_template": trader.GetSystemPromptTemplate(),
 					"error":           "账户数据获取失败",
 				}
 			case <-ctx.Done():
@@ -679,6 +681,7 @@ func (tm *TraderManager) getConcurrentTraderData(traders []*trader.AutoTrader) [
 					"position_count":  0,
 					"margin_used_pct": 0.0,
 					"is_running":      status["is_running"],
+					"system_prompt_template": trader.GetSystemPromptTemplate(),
 					"error":           "获取超时",
 				}
 			}
