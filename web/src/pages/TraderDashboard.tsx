@@ -4,6 +4,7 @@ import useSWR from 'swr'
 import { api } from '../lib/api'
 import { EquityChart } from '../components/EquityChart'
 import AILearning from '../components/AILearning'
+import RecordLimitSelector from '../components/RecordLimitSelector'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { t, type Language } from '../i18n/translations'
@@ -622,29 +623,11 @@ export default function TraderDashboard() {
             </div>
 
             {/* 显示数量选择器 */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs" style={{ color: '#848E9C' }}>
-                {language === 'zh' ? '显示' : 'Show'}:
-              </span>
-              <select
-                value={decisionLimit}
-                onChange={(e) => handleLimitChange(parseInt(e.target.value, 10))}
-                className="rounded px-2 py-1 text-xs font-medium cursor-pointer transition-colors"
-                style={{
-                  background: '#1E2329',
-                  border: '1px solid #2B3139',
-                  color: '#EAECEF',
-                }}
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-              <span className="text-xs" style={{ color: '#848E9C' }}>
-                {language === 'zh' ? '条' : ''}
-              </span>
-            </div>
+            <RecordLimitSelector
+              limit={decisionLimit}
+              onLimitChange={handleLimitChange}
+              language={language}
+            />
           </div>
 
           <div
