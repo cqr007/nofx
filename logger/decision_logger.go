@@ -7,8 +7,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"time"
 )
 
@@ -81,47 +79,12 @@ type IDecisionLogger interface {
 	GetStatistics() (*Statistics, error)
 	// AnalyzePerformance 分析最近N个周期的交易表现
 	AnalyzePerformance(lookbackCycles int) (*PerformanceAnalysis, error)
-	// SetCycleNumber 设置周期编号（用于恢复）
-	SetCycleNumber(n int)
 }
 
 // DecisionLogger 决策日志记录器
 type DecisionLogger struct {
 	logDir      string
 	cycleNumber int
-}
-
-// RedactSensitiveInfo 脱敏敏感信息（API Keys, Private Keys等）
-// 保留前4位和后4位，中间用 * 替代
-func RedactSensitiveInfo(text string) string {
-	if text == "" {
-		return text
-	}
-
-	// 脱敏类似 sk-xxxxxxxxxxxx 格式的 API Key
-	apiKeyPattern := regexp.MustCompile(`\b(sk-|key_)([a-zA-Z0-9]{4})[a-zA-Z0-9]{8,}([a-zA-Z0-9]{4})\b`)
-	text = apiKeyPattern.ReplaceAllString(text, "${1}${2}**********${3}")
-
-	// 脱敏长度超过20的十六进制字符串（可能是私钥）
-	hexKeyPattern := regexp.MustCompile(`\b0x([a-fA-F0-9]{4})[a-fA-F0-9]{32,}([a-fA-F0-9]{4})\b`)
-	text = hexKeyPattern.ReplaceAllString(text, "0x${1}**********${2}")
-
-	// 脱敏不带0x前缀的长十六进制字符串
-	plainHexPattern := regexp.MustCompile(`\b([a-fA-F0-9]{4})[a-fA-F0-9]{56,}([a-fA-F0-9]{4})\b`)
-	text = plainHexPattern.ReplaceAllString(text, "${1}**********${2}")
-
-	return text
-}
-
-// RedactAPIKey 专门用于脱敏 API Key
-func RedactAPIKey(apiKey string) string {
-	if apiKey == "" {
-		return ""
-	}
-	if len(apiKey) <= 12 {
-		return strings.Repeat("*", len(apiKey))
-	}
-	return apiKey[:4] + strings.Repeat("*", len(apiKey)-8) + apiKey[len(apiKey)-4:]
 }
 
 // NewDecisionLogger 创建决策日志记录器
@@ -135,13 +98,10 @@ func NewDecisionLogger(logDir string) IDecisionLogger {
 		fmt.Printf("⚠ 创建日志目录失败: %v\n", err)
 	}
 
-	// 强制设置目录权限（即使目录已存在）- 修复升级后权限问题
+	// 强制设置目录权限（即使目录已存在）- 确保安全
 	if err := os.Chmod(logDir, 0700); err != nil {
 		fmt.Printf("⚠ 设置日志目录权限失败: %v\n", err)
 	}
-
-	// 修复已存在的日志文件权限
-	fixExistingFilePermissions(logDir)
 
 	return &DecisionLogger{
 		logDir:      logDir,
@@ -149,53 +109,11 @@ func NewDecisionLogger(logDir string) IDecisionLogger {
 	}
 }
 
-// fixExistingFilePermissions 修复已存在的JSON文件权限
-func fixExistingFilePermissions(logDir string) {
-	files, err := ioutil.ReadDir(logDir)
-	if err != nil {
-		return // 目录不存在或无法读取，忽略
-	}
-
-	for _, file := range files {
-		if !file.IsDir() && filepath.Ext(file.Name()) == ".json" {
-			filePath := filepath.Join(logDir, file.Name())
-			// 静默修复权限，不影响正常流程
-			_ = os.Chmod(filePath, 0600)
-		}
-	}
-}
-
-// SetCycleNumber 允许外部恢复内部的周期计数（用于回测恢复）。
-func (l *DecisionLogger) SetCycleNumber(n int) {
-	if n > 0 {
-		l.cycleNumber = n
-	}
-}
-
 // LogDecision 记录决策
 func (l *DecisionLogger) LogDecision(record *DecisionRecord) error {
 	l.cycleNumber++
 	record.CycleNumber = l.cycleNumber
-	if record.Timestamp.IsZero() {
-		record.Timestamp = time.Now().UTC()
-	} else {
-		record.Timestamp = record.Timestamp.UTC()
-	}
-
-	// 脱敏敏感信息（API Keys, Private Keys）防止泄露
-	record.SystemPrompt = RedactSensitiveInfo(record.SystemPrompt)
-	record.InputPrompt = RedactSensitiveInfo(record.InputPrompt)
-	record.ErrorMessage = RedactSensitiveInfo(record.ErrorMessage)
-
-	// 脱敏执行日志中的敏感信息
-	for i := range record.ExecutionLog {
-		record.ExecutionLog[i] = RedactSensitiveInfo(record.ExecutionLog[i])
-	}
-
-	// 脱敏决策动作中的错误信息
-	for i := range record.Decisions {
-		record.Decisions[i].Error = RedactSensitiveInfo(record.Decisions[i].Error)
-	}
+	record.Timestamp = time.Now()
 
 	// 生成文件名：decision_YYYYMMDD_HHMMSS_cycleN.json
 	filename := fmt.Sprintf("decision_%s_cycle%d.json",

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-// Removed: import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { t } from '../i18n/translations'
@@ -11,7 +11,7 @@ import { useSystemConfig } from '../hooks/useSystemConfig'
 export function LoginPage() {
   const { language } = useLanguage()
   const { login, loginAdmin, verifyOTP } = useAuth()
-  // Removed: const navigate = useNavigate()
+  const navigate = useNavigate()
   const [step, setStep] = useState<'login' | 'otp'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -236,7 +236,7 @@ export function LoginPage() {
                 <div className="text-right mt-2">
                   <button
                     type="button"
-                    onClick={() => window.location.href = '/reset-password'}
+                    onClick={() => navigate('/reset-password')}
                     className="text-xs hover:underline"
                     style={{ color: '#F0B90B' }}
                   >
@@ -348,7 +348,7 @@ export function LoginPage() {
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               还没有账户？{' '}
               <button
-                onClick={() => window.location.href = '/register'}
+                onClick={() => navigate('/register')}
                 className="font-semibold hover:underline transition-colors"
                 style={{ color: 'var(--brand-yellow)' }}
               >
