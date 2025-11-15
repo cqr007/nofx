@@ -28,6 +28,22 @@ This is an AI automated trading tool. Before use, please note:
 
 ---
 
+**本分支专注于**：
+
+- 🎯 AI 计算和决策的正确性
+- 🐛 核心交易逻辑的 bug 修复
+- 📊 数据准确性（费用、P&L 等）
+- 🔄 系统稳定性（WebSocket、持久化等）
+
+**This branch focuses on**:
+
+- 🎯 AI calculation and decision accuracy
+- 🐛 Core trading logic bug fixes
+- 📊 Data accuracy (fees, P&L, etc.)
+- 🔄 System stability (WebSocket, persistence, etc.)
+
+---
+
 **🔧 额外的 Bug 修复（个人维护版本）**
 
 此分支包含一些额外的 bug 修复和改进，主要供个人使用。包括但不限于：
