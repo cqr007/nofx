@@ -64,6 +64,9 @@ export const translations = {
     aiThinking: 'AI Chain of Thought',
     collapse: 'Collapse',
     expand: 'Expand',
+    newStopLoss: 'New Stop Loss',
+    newTakeProfit: 'New Take Profit',
+    closePercentage: 'Close Percentage',
 
     // Equity Chart
     accountEquityCurve: 'Account Equity Curve',
@@ -1079,6 +1082,9 @@ export const translations = {
     inputPrompt: '输入提示',
     aiThinking: '💭 AI思维链分析',
     collapse: '▼ 收起',
+    newStopLoss: '新止损价',
+    newTakeProfit: '新止盈价',
+    closePercentage: '平仓比例',
     expand: '▶ 展开',
 
     // Equity Chart
