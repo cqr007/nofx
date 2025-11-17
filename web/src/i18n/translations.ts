@@ -271,7 +271,7 @@ export const translations = {
 
     // AI Learning
     aiLearning: 'AI Learning & Reflection',
-    tradesAnalyzed: '{count} trades analyzed · Real-time evolution',
+    tradesAnalyzed: '{count} trades analyzed · Current prompt version',
     latestReflection: 'Latest Reflection',
     fullCoT: 'Full Chain of Thought',
     totalTrades: 'Total Trades',
@@ -288,7 +288,7 @@ export const translations = {
     worstPerformer: 'Worst Performer',
     symbolPerformance: 'Symbol Performance',
     tradeHistory: 'Trade History',
-    currentStrategyTrades: 'Current Strategy ({count} trades)',
+    currentStrategyTrades: 'Current prompt version ({count} trades)',
     insufficientTradesForSharpe: 'Need at least 2 trades to calculate',
     completedTrades: 'Recent {count} completed trades',
     noCompletedTrades: 'No completed trades yet',
@@ -1288,7 +1288,7 @@ export const translations = {
 
     // AI Learning
     aiLearning: 'AI学习与反思',
-    tradesAnalyzed: '已分析 {count} 笔交易 · 实时演化',
+    tradesAnalyzed: '已分析 {count} 笔交易 · 当前 Prompt 版本',
     latestReflection: '最新反思',
     fullCoT: '📋 完整思维链',
     totalTrades: '总交易数',
@@ -1305,7 +1305,7 @@ export const translations = {
     worstPerformer: '最差表现',
     symbolPerformance: '📊 币种表现',
     tradeHistory: '历史成交',
-    currentStrategyTrades: '当前策略（{count} 笔交易）',
+    currentStrategyTrades: '当前 Prompt 版本（{count} 笔交易）',
     insufficientTradesForSharpe: '至少需要 2 笔交易才能计算',
     completedTrades: '最近 {count} 笔已完成交易',
     noCompletedTrades: '暂无完成的交易',
