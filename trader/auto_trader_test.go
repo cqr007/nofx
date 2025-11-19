@@ -1592,114 +1592,100 @@ func (s *AutoTraderTestSuite) TestUpdateStopLossSkipDuplicate() {
 
 // TestUpdateStopLossRatchet 测试止损单向移动机制 (Hard Limit)
 func (s *AutoTraderTestSuite) TestUpdateStopLossRatchet() {
-	s.Run("多单_拒绝回调止损(下移)", func() {
-		symbol := "BTCUSDT"
-		posKey := "BTCUSDT_long"
-		currentPrice := 55000.0
-		currentSL := 52000.0
-		newSL := 51000.0 // 变差（倒退）
+	tests := []struct {
+		name           string
+		symbol         string
+		posKey         string // 内存中的 key
+		side           string // MockTrader position side
+		amount         float64
+		currentPrice   float64
+		currentSL      float64
+		newSL          float64
+		expectCall     bool
+		expectMemorySL float64
+	}{
+		{
+			name:           "多单_拒绝回调止损(下移)",
+			symbol:         "BTCUSDT",
+			posKey:         "BTCUSDT_long",
+			side:           "long",
+			amount:         1.0,
+			currentPrice:   55000.0,
+			currentSL:      52000.0,
+			newSL:          51000.0, // 变差
+			expectCall:     false,
+			expectMemorySL: 52000.0,
+		},
+		{
+			name:           "多单_接受优化止损(上移)",
+			symbol:         "BTCUSDT",
+			posKey:         "BTCUSDT_long",
+			side:           "long",
+			amount:         1.0,
+			currentPrice:   55000.0,
+			currentSL:      52000.0,
+			newSL:          53000.0, // 变好
+			expectCall:     true,
+			expectMemorySL: 53000.0,
+		},
+		{
+			name:           "空单_拒绝回调止损(上移)",
+			symbol:         "ETHUSDT",
+			posKey:         "ETHUSDT_short",
+			side:           "short",
+			amount:         -10.0,
+			currentPrice:   2000.0,
+			currentSL:      2500.0,
+			newSL:          2600.0, // 变差
+			expectCall:     false,
+			expectMemorySL: 2500.0,
+		},
+		{
+			name:           "空单_接受优化止损(下移)",
+			symbol:         "ETHUSDT",
+			posKey:         "ETHUSDT_short",
+			side:           "short",
+			amount:         -10.0,
+			currentPrice:   2000.0,
+			currentSL:      2500.0,
+			newSL:          2400.0, // 变好
+			expectCall:     true,
+			expectMemorySL: 2400.0,
+		},
+	}
 
-		// 初始化状态
-		s.autoTrader.positionStopLoss[posKey] = currentSL
-		s.mockTrader.positions = []map[string]interface{}{
-			{"symbol": symbol, "side": "long", "positionAmt": 1.0},
-		}
-		s.mockTrader.setStopLossCallCount = 0
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			// 1. 初始化状态
+			s.autoTrader.positionStopLoss[tt.posKey] = tt.currentSL
+			s.mockTrader.positions = []map[string]interface{}{
+				{"symbol": tt.symbol, "side": tt.side, "positionAmt": tt.amount},
+			}
+			s.mockTrader.setStopLossCallCount = 0 // 重置计数器
 
-		s.patches.ApplyFunc(market.Get, func(sym string) (*market.Data, error) {
-			return &market.Data{Symbol: sym, CurrentPrice: currentPrice}, nil
+			// 2. Mock 市场价格
+			s.patches.ApplyFunc(market.Get, func(sym string) (*market.Data, error) {
+				return &market.Data{Symbol: sym, CurrentPrice: tt.currentPrice}, nil
+			})
+
+			// 3. 执行操作
+			decision := &decision.Decision{Symbol: tt.symbol, Action: "update_stop_loss", NewStopLoss: tt.newSL}
+			actionRecord := &logger.DecisionAction{}
+
+			err := s.autoTrader.executeUpdateStopLossWithRecord(decision, actionRecord)
+
+			// 4. 验证结果
+			s.NoError(err)
+
+			if tt.expectCall {
+				s.Equal(1, s.mockTrader.setStopLossCallCount, "应该调用 SetStopLoss")
+			} else {
+				s.Equal(0, s.mockTrader.setStopLossCallCount, "不应该调用 SetStopLoss")
+			}
+
+			s.Equal(tt.expectMemorySL, s.autoTrader.positionStopLoss[tt.posKey], "内存中的止损价格验证失败")
 		})
-
-		decision := &decision.Decision{Symbol: symbol, Action: "update_stop_loss", NewStopLoss: newSL}
-		actionRecord := &logger.DecisionAction{}
-
-		err := s.autoTrader.executeUpdateStopLossWithRecord(decision, actionRecord)
-
-		s.NoError(err)
-		s.Equal(0, s.mockTrader.setStopLossCallCount, "不应该调用SetStopLoss")
-		s.Equal(currentSL, s.autoTrader.positionStopLoss[posKey], "内存状态不应改变")
-	})
-
-	s.Run("多单_接受优化止损(上移)", func() {
-		symbol := "BTCUSDT"
-		posKey := "BTCUSDT_long"
-		currentPrice := 55000.0
-		currentSL := 52000.0
-		newSL := 53000.0 // 变好（锁定更多利润）
-
-		s.autoTrader.positionStopLoss[posKey] = currentSL
-		s.mockTrader.positions = []map[string]interface{}{
-			{"symbol": symbol, "side": "long", "positionAmt": 1.0},
-		}
-		s.mockTrader.setStopLossCallCount = 0
-
-		s.patches.ApplyFunc(market.Get, func(sym string) (*market.Data, error) {
-			return &market.Data{Symbol: sym, CurrentPrice: currentPrice}, nil
-		})
-
-		decision := &decision.Decision{Symbol: symbol, Action: "update_stop_loss", NewStopLoss: newSL}
-		actionRecord := &logger.DecisionAction{}
-
-		err := s.autoTrader.executeUpdateStopLossWithRecord(decision, actionRecord)
-
-		s.NoError(err)
-		s.Equal(1, s.mockTrader.setStopLossCallCount, "应该调用SetStopLoss")
-		s.Equal(newSL, s.autoTrader.positionStopLoss[posKey], "内存状态应该更新")
-	})
-
-	s.Run("空单_拒绝回调止损(上移)", func() {
-		symbol := "ETHUSDT"
-		posKey := "ETHUSDT_short"
-		currentPrice := 2000.0
-		currentSL := 2500.0
-		newSL := 2600.0 // 变差（倒退）
-
-		s.autoTrader.positionStopLoss[posKey] = currentSL
-		s.mockTrader.positions = []map[string]interface{}{
-			{"symbol": symbol, "side": "short", "positionAmt": -10.0},
-		}
-		s.mockTrader.setStopLossCallCount = 0
-
-		s.patches.ApplyFunc(market.Get, func(sym string) (*market.Data, error) {
-			return &market.Data{Symbol: sym, CurrentPrice: currentPrice}, nil
-		})
-
-		decision := &decision.Decision{Symbol: symbol, Action: "update_stop_loss", NewStopLoss: newSL}
-		actionRecord := &logger.DecisionAction{}
-
-		err := s.autoTrader.executeUpdateStopLossWithRecord(decision, actionRecord)
-
-		s.NoError(err)
-		s.Equal(0, s.mockTrader.setStopLossCallCount, "不应该调用SetStopLoss")
-		s.Equal(currentSL, s.autoTrader.positionStopLoss[posKey], "内存状态不应改变")
-	})
-
-	s.Run("空单_接受优化止损(下移)", func() {
-		symbol := "ETHUSDT"
-		posKey := "ETHUSDT_short"
-		currentPrice := 2000.0
-		currentSL := 2500.0
-		newSL := 2400.0 // 变好（锁定更多利润）
-
-		s.autoTrader.positionStopLoss[posKey] = currentSL
-		s.mockTrader.positions = []map[string]interface{}{
-			{"symbol": symbol, "side": "short", "positionAmt": -10.0},
-		}
-		s.mockTrader.setStopLossCallCount = 0
-
-		s.patches.ApplyFunc(market.Get, func(sym string) (*market.Data, error) {
-			return &market.Data{Symbol: sym, CurrentPrice: currentPrice}, nil
-		})
-
-		decision := &decision.Decision{Symbol: symbol, Action: "update_stop_loss", NewStopLoss: newSL}
-		actionRecord := &logger.DecisionAction{}
-
-		err := s.autoTrader.executeUpdateStopLossWithRecord(decision, actionRecord)
-
-		s.NoError(err)
-		s.Equal(1, s.mockTrader.setStopLossCallCount, "应该调用SetStopLoss")
-		s.Equal(newSL, s.autoTrader.positionStopLoss[posKey], "内存状态应该更新")
-	})
+	}
 }
 
 // TestUpdateTakeProfitSkipDuplicate 测试重复的止盈更新应该被跳过
