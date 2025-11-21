@@ -1372,6 +1372,9 @@ func (at *AutoTrader) executePartialCloseWithRecord(decision *decision.Decision,
 		err = at.trader.SetStopLoss(decision.Symbol, positionSide, remainingQuantity, finalStopLoss)
 		if err != nil {
 			log.Printf("  ⚠️ 设置止损失败: %v（不影响平仓结果）", err)
+		} else {
+			// ✅ 更新内存缓存，确保后续操作使用最新的 SL 价格
+			at.positionStopLoss[posKey] = finalStopLoss
 		}
 	}
 
@@ -1385,6 +1388,9 @@ func (at *AutoTrader) executePartialCloseWithRecord(decision *decision.Decision,
 		err = at.trader.SetTakeProfit(decision.Symbol, positionSide, remainingQuantity, finalTakeProfit)
 		if err != nil {
 			log.Printf("  ⚠️ 设置止盈失败: %v（不影响平仓结果）", err)
+		} else {
+			// ✅ 更新内存缓存，确保后续操作使用最新的 TP 价格
+			at.positionTakeProfit[posKey] = finalTakeProfit
 		}
 	}
 

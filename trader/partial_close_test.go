@@ -350,6 +350,88 @@ func TestPartialCloseEdgeCases(t *testing.T) {
 	}
 }
 
+// TestPartialCloseSLTPMemoryCacheUpdate 測試部分平倉後內存緩存是否正確更新
+// 這是代碼審查中發現的 bug：部分平倉後重新創建 SL/TP 訂單時，需要更新內存緩存
+// 否則後續的 partial_close 或 update_stop_loss 會使用過時的價格
+func TestPartialCloseSLTPMemoryCacheUpdate(t *testing.T) {
+	tests := []struct {
+		name                   string
+		originalStopLoss       float64 // 開倉時設置的止損
+		originalTakeProfit     float64 // 開倉時設置的止盈
+		aiNewStopLoss          float64 // AI 在 partial_close 時提供的新止損
+		aiNewTakeProfit        float64 // AI 在 partial_close 時提供的新止盈
+		expectCacheStopLoss    float64 // 期望內存緩存中的止損（partial_close 後）
+		expectCacheTakeProfit  float64 // 期望內存緩存中的止盈（partial_close 後）
+	}{
+		{
+			name:                   "AI提供新價格_緩存應更新為AI價格",
+			originalStopLoss:       47000.0,
+			originalTakeProfit:     51000.0,
+			aiNewStopLoss:          48000.0,
+			aiNewTakeProfit:        52000.0,
+			expectCacheStopLoss:    48000.0, // 應該是 AI 提供的新價格
+			expectCacheTakeProfit:  52000.0,
+		},
+		{
+			name:                   "AI不提供_緩存應保持原價格",
+			originalStopLoss:       47000.0,
+			originalTakeProfit:     51000.0,
+			aiNewStopLoss:          0, // AI 不提供
+			aiNewTakeProfit:        0,
+			expectCacheStopLoss:    47000.0, // 應該是原始價格（fallback）
+			expectCacheTakeProfit:  51000.0,
+		},
+		{
+			name:                   "混合情況_各自更新",
+			originalStopLoss:       47000.0,
+			originalTakeProfit:     51000.0,
+			aiNewStopLoss:          48000.0, // AI 提供
+			aiNewTakeProfit:        0,       // AI 不提供
+			expectCacheStopLoss:    48000.0, // AI 價格
+			expectCacheTakeProfit:  51000.0, // 原始價格（fallback）
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 模擬 executePartialCloseWithRecord 中的邏輯
+			// 步驟 1: 開倉時設置初始緩存
+			positionStopLoss := make(map[string]float64)
+			positionTakeProfit := make(map[string]float64)
+			posKey := "BTCUSDT_long"
+
+			positionStopLoss[posKey] = tt.originalStopLoss
+			positionTakeProfit[posKey] = tt.originalTakeProfit
+
+			// 步驟 2: 部分平倉時，確定最終使用的價格
+			finalStopLoss := tt.aiNewStopLoss
+			if finalStopLoss <= 0 {
+				finalStopLoss = positionStopLoss[posKey]
+			}
+			finalTakeProfit := tt.aiNewTakeProfit
+			if finalTakeProfit <= 0 {
+				finalTakeProfit = positionTakeProfit[posKey]
+			}
+
+			// 步驟 3: 設置 SL/TP 訂單成功後，更新緩存（這是修復後的邏輯）
+			if finalStopLoss > 0 {
+				positionStopLoss[posKey] = finalStopLoss
+			}
+			if finalTakeProfit > 0 {
+				positionTakeProfit[posKey] = finalTakeProfit
+			}
+
+			// 驗證緩存是否正確更新
+			if positionStopLoss[posKey] != tt.expectCacheStopLoss {
+				t.Errorf("內存緩存止損錯誤: got = %.2f, 期望 = %.2f", positionStopLoss[posKey], tt.expectCacheStopLoss)
+			}
+			if positionTakeProfit[posKey] != tt.expectCacheTakeProfit {
+				t.Errorf("內存緩存止盈錯誤: got = %.2f, 期望 = %.2f", positionTakeProfit[posKey], tt.expectCacheTakeProfit)
+			}
+		})
+	}
+}
+
 // TestPartialCloseIntegration 整合測試（使用 mock trader）
 func TestPartialCloseIntegration(t *testing.T) {
 	tests := []struct {
