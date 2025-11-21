@@ -15,6 +15,11 @@ import (
 	"github.com/adshao/go-binance/v2/futures"
 )
 
+// 日志消息常量（避免重复字符串）
+const (
+	logMsgCancelledAllOrders = "  ✓ 已取消 %s 的所有挂单"
+)
+
 // getBrOrderID 生成唯一订单ID（合约专用）
 // 格式: x-{BR_ID}{TIMESTAMP}{RANDOM}
 // 合约限制32字符，统一使用此限制以保持一致性
@@ -468,7 +473,7 @@ func (t *FuturesTrader) CloseLong(symbol string, quantity float64) (map[string]i
 	if err := t.CancelAllOrders(symbol); err != nil {
 		log.Printf("  ⚠ 取消挂单失败: %v", err)
 	} else {
-		log.Printf("  ✓ 已取消 %s 的所有挂单", symbol)
+		log.Printf(logMsgCancelledAllOrders, symbol)
 	}
 
 	result := make(map[string]interface{})
@@ -524,7 +529,7 @@ func (t *FuturesTrader) CloseShort(symbol string, quantity float64) (map[string]
 	if err := t.CancelAllOrders(symbol); err != nil {
 		log.Printf("  ⚠ 取消挂单失败: %v", err)
 	} else {
-		log.Printf("  ✓ 已取消 %s 的所有挂单", symbol)
+		log.Printf(logMsgCancelledAllOrders, symbol)
 	}
 
 	result := make(map[string]interface{})
@@ -644,7 +649,7 @@ func (t *FuturesTrader) CancelAllOrders(symbol string) error {
 		return fmt.Errorf("取消挂单失败: %w", err)
 	}
 
-	log.Printf("  ✓ 已取消 %s 的所有挂单", symbol)
+	log.Printf(logMsgCancelledAllOrders, symbol)
 	return nil
 }
 

@@ -549,16 +549,13 @@ func (t *HyperliquidTrader) CloseLong(symbol string, quantity float64) (map[stri
 	// 注意：部分平仓时，auto_trader.go 会负责用正确的数量重新创建 SL/TP 订单
 	if err := t.CancelAllOrders(symbol); err != nil {
 		log.Printf("  ⚠ 取消挂单失败: %v", err)
-	} else {
-		log.Printf("  ✓ 已取消 %s 的所有挂单", symbol)
 	}
 
-	result := make(map[string]interface{})
-	result["orderId"] = 0
-	result["symbol"] = symbol
-	result["status"] = "FILLED"
-
-	return result, nil
+	return map[string]interface{}{
+		"orderId": 0,
+		"symbol":  symbol,
+		"status":  "FILLED",
+	}, nil
 }
 
 // CloseShort 平空仓
@@ -622,19 +619,14 @@ func (t *HyperliquidTrader) CloseShort(symbol string, quantity float64) (map[str
 	// 注意：部分平仓时，auto_trader.go 会负责用正确的数量重新创建 SL/TP 订单
 	if err := t.CancelAllOrders(symbol); err != nil {
 		log.Printf("  ⚠ 取消挂单失败: %v", err)
-	} else {
-		log.Printf("  ✓ 已取消 %s 的所有挂单", symbol)
 	}
 
-	result := make(map[string]interface{})
-	result["orderId"] = 0
-	result["symbol"] = symbol
-	result["status"] = "FILLED"
-
-	return result, nil
+	return map[string]interface{}{
+		"orderId": 0,
+		"symbol":  symbol,
+		"status":  "FILLED",
+	}, nil
 }
-
-// CancelStopOrders 取消该币种的止盈/止
 
 // CancelStopLossOrders 仅取消止损单（Hyperliquid 暂无法区分止损和止盈，取消所有）
 func (t *HyperliquidTrader) CancelStopLossOrders(symbol string) error {

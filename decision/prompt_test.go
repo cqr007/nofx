@@ -111,8 +111,8 @@ func TestRealFatal_Documentation(t *testing.T) {
 	// → 不会用错误的策略进行交易 → 100万资金安全 ✅
 }
 
-// TestBuildSystemPrompt_PartialCloseRequiresSLTP 测试 partial_close 必须要求 new_stop_loss 和 new_take_profit
-func TestBuildSystemPrompt_PartialCloseRequiresSLTP(t *testing.T) {
+// TestBuildSystemPromptPartialCloseRequiresSLTP 测试 partial_close 必须要求 new_stop_loss 和 new_take_profit
+func TestBuildSystemPromptPartialCloseRequiresSLTP(t *testing.T) {
 	prompt := buildSystemPrompt(1000.0, 10, 5, "default")
 
 	// 验证 partial_close 指令中包含 new_stop_loss 和 new_take_profit 的要求
