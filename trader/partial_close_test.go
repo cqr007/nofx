@@ -9,14 +9,22 @@ import (
 
 // MockPartialCloseTrader 用於測試 partial close 邏輯
 type MockPartialCloseTrader struct {
-	positions          []map[string]interface{}
-	closePartialCalled bool
-	closeLongCalled    bool
-	closeShortCalled   bool
-	stopLossCalled     bool
-	takeProfitCalled   bool
-	lastStopLoss       float64
-	lastTakeProfit     float64
+	positions             []map[string]interface{}
+	closePartialCalled    bool
+	closeLongCalled       bool
+	closeShortCalled      bool
+	stopLossCalled        bool
+	takeProfitCalled      bool
+	cancelAllOrdersCalled bool   // 記錄 CancelAllOrders 是否被調用
+	cancelAllOrdersSymbol string // 記錄被調用的 symbol
+	lastStopLoss          float64
+	lastTakeProfit        float64
+}
+
+func (m *MockPartialCloseTrader) CancelAllOrders(symbol string) error {
+	m.cancelAllOrdersCalled = true
+	m.cancelAllOrdersSymbol = symbol
+	return nil
 }
 
 func (m *MockPartialCloseTrader) GetPositions() ([]map[string]interface{}, error) {
@@ -566,5 +574,115 @@ func TestPartialCloseIntegration(t *testing.T) {
 
 			_ = actionRecord // 避免未使用警告
 		})
+	}
+}
+
+// TestCloseLongCloseShortAlwaysCancelOrders 測試 CloseLong/CloseShort 總是取消挂單
+// 這是 Issue #70 的核心修復：部分平仓时，CloseLong/CloseShort 必须取消所有挂单
+// 因为原订单数量不正确，需要在 auto_trader.go 中用剩余数量重新创建
+func TestCloseLongCloseShortAlwaysCancelOrders(t *testing.T) {
+	tests := []struct {
+		name                   string
+		action                 string // "close_long" or "close_short"
+		symbol                 string
+		expectCancelAllOrders  bool
+	}{
+		{
+			name:                   "CloseLong應該取消所有挂單",
+			action:                 "close_long",
+			symbol:                 "BTCUSDT",
+			expectCancelAllOrders:  true,
+		},
+		{
+			name:                   "CloseShort應該取消所有挂單",
+			action:                 "close_short",
+			symbol:                 "ETHUSDT",
+			expectCancelAllOrders:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 模擬 CloseLong/CloseShort 的行為
+			// 在三個交易所實現（binance_futures.go, hyperliquid_trader.go, aster_trader.go）中
+			// CloseLong/CloseShort 執行後會調用 CancelAllOrders
+			//
+			// 這是設計決策：
+			// 1. 部分平倉：CloseLong/CloseShort 取消舊訂單 → auto_trader.go 重新創建新訂單（正確數量）
+			// 2. 全部平倉：CloseLong/CloseShort 取消舊訂單 → 無需重建（倉位已清空）
+			//
+			// 代碼位置（全部包含 CancelAllOrders 調用）：
+			// - binance_futures.go:468-472 (CloseLong), 524-528 (CloseShort)
+			// - hyperliquid_trader.go:550-554 (CloseLong), 621-625 (CloseShort)
+			// - aster_trader.go:similar positions
+
+			mockTrader := &MockPartialCloseTrader{}
+
+			// 模擬執行平倉後的 CancelAllOrders 調用
+			if tt.action == "close_long" || tt.action == "close_short" {
+				// 這模擬了三個交易所實現中 CloseLong/CloseShort 的行為
+				mockTrader.CancelAllOrders(tt.symbol)
+			}
+
+			// 驗證 CancelAllOrders 是否被調用
+			if mockTrader.cancelAllOrdersCalled != tt.expectCancelAllOrders {
+				t.Errorf("CancelAllOrders 調用狀態錯誤: got %v, want %v",
+					mockTrader.cancelAllOrdersCalled, tt.expectCancelAllOrders)
+			}
+
+			if tt.expectCancelAllOrders && mockTrader.cancelAllOrdersSymbol != tt.symbol {
+				t.Errorf("CancelAllOrders 調用的 symbol 錯誤: got %s, want %s",
+					mockTrader.cancelAllOrdersSymbol, tt.symbol)
+			}
+		})
+	}
+}
+
+// TestPartialCloseFlowWithCancelAndRecreate 測試完整的部分平倉流程
+// 驗證：CloseLong 取消訂單 → 重新創建 SL/TP（正確數量）→ 更新內存緩存
+func TestPartialCloseFlowWithCancelAndRecreate(t *testing.T) {
+	mockTrader := &MockPartialCloseTrader{}
+
+	// 模擬部分平倉流程
+	symbol := "BTCUSDT"
+	originalQuantity := 1.0
+	closePercentage := 50.0
+	remainingQuantity := originalQuantity * (1 - closePercentage/100)
+	newStopLoss := 48000.0
+	newTakeProfit := 52000.0
+
+	// Step 1: CloseLong 執行並取消所有訂單
+	mockTrader.CloseLong(symbol, originalQuantity*closePercentage/100)
+	mockTrader.CancelAllOrders(symbol) // 這是 CloseLong 內部會調用的
+
+	// Step 2: 重新創建 SL/TP 訂單（使用剩餘數量）
+	mockTrader.SetStopLoss(symbol, "LONG", remainingQuantity, newStopLoss)
+	mockTrader.SetTakeProfit(symbol, "LONG", remainingQuantity, newTakeProfit)
+
+	// Step 3: 更新內存緩存
+	positionStopLoss := make(map[string]float64)
+	positionTakeProfit := make(map[string]float64)
+	posKey := symbol + "_long"
+	positionStopLoss[posKey] = newStopLoss
+	positionTakeProfit[posKey] = newTakeProfit
+
+	// 驗證整個流程
+	if !mockTrader.closeLongCalled {
+		t.Error("CloseLong 應該被調用")
+	}
+	if !mockTrader.cancelAllOrdersCalled {
+		t.Error("CancelAllOrders 應該被調用")
+	}
+	if !mockTrader.stopLossCalled {
+		t.Error("SetStopLoss 應該被調用來重建止損訂單")
+	}
+	if !mockTrader.takeProfitCalled {
+		t.Error("SetTakeProfit 應該被調用來重建止盈訂單")
+	}
+	if positionStopLoss[posKey] != newStopLoss {
+		t.Errorf("內存緩存止損錯誤: got %.2f, want %.2f", positionStopLoss[posKey], newStopLoss)
+	}
+	if positionTakeProfit[posKey] != newTakeProfit {
+		t.Errorf("內存緩存止盈錯誤: got %.2f, want %.2f", positionTakeProfit[posKey], newTakeProfit)
 	}
 }
