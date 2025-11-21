@@ -2,16 +2,26 @@ package manager
 
 import (
 	"nofx/config"
+	"nofx/trader"
 	"testing"
+	"time"
 )
 
 // TestRemoveTrader 测试从内存中移除trader
 func TestRemoveTrader(t *testing.T) {
 	tm := NewTraderManager()
 
-	// 创建一个模拟的 trader 并添加到 map
+	// 创建一个真实的 AutoTrader 实例
 	traderID := "test-trader-123"
-	tm.traders[traderID] = nil // 使用 nil 作为占位符，实际测试中只需验证删除逻辑
+	cfg := trader.AutoTraderConfig{
+		ID:             traderID,
+		Name:           "Test Trader",
+		InitialBalance: 1000,
+		ScanInterval:   1 * time.Minute,
+	}
+	at, _ := trader.NewAutoTrader(cfg, nil, "user1")
+	
+	tm.traders[traderID] = at
 
 	// 验证 trader 存在
 	if _, exists := tm.traders[traderID]; !exists {
@@ -24,6 +34,50 @@ func TestRemoveTrader(t *testing.T) {
 	// 验证 trader 已被移除
 	if _, exists := tm.traders[traderID]; exists {
 		t.Error("trader 应该已从 map 中移除")
+	}
+}
+
+// TestRemoveTrader_StopsRunningTrader 测试移除正在运行的 trader 时会自动停止它
+func TestRemoveTrader_StopsRunningTrader(t *testing.T) {
+	tm := NewTraderManager()
+	traderID := "test-trader-running"
+
+	// 创建一个真实的 AutoTrader 实例
+	cfg := trader.AutoTraderConfig{
+		ID:             traderID,
+		Name:           "Test Running Trader",
+		InitialBalance: 1000,
+		ScanInterval:   100 * time.Millisecond, // 短间隔
+	}
+	at, _ := trader.NewAutoTrader(cfg, nil, "user1")
+
+	tm.traders[traderID] = at
+
+	// 启动一个 goroutine 运行 trader
+	go func() {
+		at.Run()
+	}()
+
+	// 等待 trader 启动完成
+	time.Sleep(50 * time.Millisecond)
+
+	// 验证正在运行（使用线程安全的 IsRunning 方法）
+	if !at.IsRunning() {
+		t.Fatal("Trader 应该是运行状态")
+	}
+
+	// 调用 RemoveTrader
+	// 期望：RemoveTrader 会调用 at.Stop()，这将导致 at.Run() 循环退出，并设置 isRunning=false
+	tm.RemoveTrader(traderID)
+
+	// 验证 trader 已被移除
+	if _, exists := tm.traders[traderID]; exists {
+		t.Error("trader 应该已从 map 中移除")
+	}
+
+	// 验证 trader 已停止
+	if at.IsRunning() {
+		t.Error("Trader 应该已经被停止")
 	}
 }
 
