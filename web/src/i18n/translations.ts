@@ -61,7 +61,7 @@ export const translations = {
     success: 'Success',
     failed: 'Failed',
     inputPrompt: 'Input Prompt',
-    aiThinking: 'AI Chain of Thought',
+    aiThinking: '💭 AI Chain of Thought',
     collapse: 'Collapse',
     expand: 'Expand',
     newStopLoss: 'New Stop Loss',
