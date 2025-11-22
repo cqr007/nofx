@@ -97,6 +97,14 @@
    - 配置文件修改
    - 文档更新
 
+## Docker 操作规则 - CRITICAL ⚠️
+
+**docker compose 命令必须指定服务名**，只操作需要的服务：
+- 前端：`docker compose build nofx-frontend && docker compose up -d nofx-frontend`
+- 后端：`docker compose build nofx && docker compose up -d nofx`
+
+❌ 禁止 `docker compose down/up/restart` 不带服务名（会重启所有服务）
+
 ## 代码编辑规则
 
 - **只改需要改的行**，不要为了对齐而修改其他行
