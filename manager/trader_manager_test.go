@@ -169,6 +169,28 @@ func TestAddTraderFromDB_Providers(t *testing.T) {
 			expectCustomURL: "https://api.anthropic.com/v1",
 			expectModelName: "claude-3-opus",
 		},
+		{
+			name:            "Gemini Provider",
+			provider:        "gemini",
+			apiKey:          "test-gemini-key-12345",
+			customURL:       "https://generativelanguage.googleapis.com/v1beta/openai",
+			customModel:     "gemini-2.0-flash-exp",
+			expectAIModel:   "gemini",
+			expectCustomKey: "test-gemini-key-12345",
+			expectCustomURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+			expectModelName: "gemini-2.0-flash-exp",
+		},
+		{
+			name:            "Groq Provider",
+			provider:        "groq",
+			apiKey:          "test-groq-key-67890",
+			customURL:       "https://api.groq.com/openai/v1",
+			customModel:     "llama-3.3-70b-versatile",
+			expectAIModel:   "groq",
+			expectCustomKey: "test-groq-key-67890",
+			expectCustomURL: "https://api.groq.com/openai/v1",
+			expectModelName: "llama-3.3-70b-versatile",
+		},
 	}
 
 	for _, tt := range tests {
@@ -176,43 +198,8 @@ func TestAddTraderFromDB_Providers(t *testing.T) {
 			tm := NewTraderManager()
 			traderID := "test-trader-" + tt.provider
 
-			// 准备测试数据
-			traderCfg := &config.TraderRecord{
-				ID:                  traderID,
-				UserID:              "test-user",
-				Name:                "Test Trader",
-				AIModelID:           "test-model-" + tt.provider,
-				ExchangeID:          "binance",
-				InitialBalance:      10000,
-				ScanIntervalMinutes: 3,
-				IsRunning:           false,
-				BTCETHLeverage:      10,
-				AltcoinLeverage:     5,
-				IsCrossMargin:       true,
-				TradingSymbols:      "BTC,ETH",
-			}
-
-			aiModelCfg := &config.AIModelConfig{
-				ID:              "test-model-" + tt.provider,
-				UserID:          "test-user",
-				Name:            "Test AI",
-				Provider:        tt.provider,
-				Enabled:         true,
-				APIKey:          tt.apiKey,
-				CustomAPIURL:    tt.customURL,
-				CustomModelName: tt.customModel,
-			}
-
-			exchangeCfg := &config.ExchangeConfig{
-				ID:        "binance",
-				UserID:    "test-user",
-				Name:      "Binance",
-				Type:      "binance",
-				Enabled:   true,
-				APIKey:    "binance-api-key",
-				SecretKey: "binance-secret-key",
-				Testnet:   false,
-			}
+			// 使用辅助函数创建测试配置
+			traderCfg, aiModelCfg, exchangeCfg := createTestConfigs(tt.provider, tt.apiKey, tt.customURL, tt.customModel)
 
 			// 调用 addTraderFromDB
 			err := tm.addTraderFromDB(
@@ -258,4 +245,49 @@ func TestAddTraderFromDB_Providers(t *testing.T) {
 			}
 		})
 	}
+}
+
+// createTestConfigs 辅助函数：创建测试所需的配置对象，减少代码重复
+func createTestConfigs(provider, apiKey, customURL, customModel string) (*config.TraderRecord, *config.AIModelConfig, *config.ExchangeConfig) {
+	traderID := "test-trader-" + provider
+	modelID := "test-model-" + provider
+
+	traderCfg := &config.TraderRecord{
+		ID:                  traderID,
+		UserID:              "test-user",
+		Name:                "Test Trader",
+		AIModelID:           modelID,
+		ExchangeID:          "binance",
+		InitialBalance:      10000,
+		ScanIntervalMinutes: 3,
+		IsRunning:           false,
+		BTCETHLeverage:      10,
+		AltcoinLeverage:     5,
+		IsCrossMargin:       true,
+		TradingSymbols:      "BTC,ETH",
+	}
+
+	aiModelCfg := &config.AIModelConfig{
+		ID:              modelID,
+		UserID:          "test-user",
+		Name:            "Test AI",
+		Provider:        provider,
+		Enabled:         true,
+		APIKey:          apiKey,
+		CustomAPIURL:    customURL,
+		CustomModelName: customModel,
+	}
+
+	exchangeCfg := &config.ExchangeConfig{
+		ID:        "binance",
+		UserID:    "test-user",
+		Name:      "Binance",
+		Type:      "binance",
+		Enabled:   true,
+		APIKey:    "binance-api-key",
+		SecretKey: "binance-secret-key",
+		Testnet:   false,
+	}
+
+	return traderCfg, aiModelCfg, exchangeCfg
 }

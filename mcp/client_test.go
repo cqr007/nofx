@@ -42,7 +42,7 @@ func TestClient_BaseURL_SlashHandling(t *testing.T) {
 	t.Run("With Trailing Slash", func(t *testing.T) {
 		client := New().(*Client)
 		// 故意在 URL 末尾加斜杠
-		client.SetAPIKey("test-key", server.URL+"/", "test-model")
+		client.SetAPIKey("test-key", server.URL+"/", "test-model", "custom")
 		client.Timeout = 1 * time.Second
 
 		// 我们需要一种方式来验证 client 确实生成了正确的 URL 字符串。
@@ -71,12 +71,104 @@ func TestClient_BaseURL_SlashHandling(t *testing.T) {
 func TestClient_URL_Construction_Logic(t *testing.T) {
     // 这是一个更直接的单元测试，不需要启动 server
     client := New().(*Client)
-    client.SetAPIKey("key", "http://example.com/", "model")
-    
+    client.SetAPIKey("key", "http://example.com/", "model", "custom")
+
     // 由于 callOnce 内部拼接 URL 逻辑是硬编码的，我们无法直接通过公开方法获取 URL。
     // 但我们可以通过测试 SetAPIKey 的副作用（BaseURL 字段）。
     // 等等，我们的修复是修改 callOnce 内部的拼接逻辑，而不是 SetAPIKey。
     // 所以 BaseURL 字段本身还是带斜杠的。
-    
+
     // 那么我们必须通过 mock http.Client 或者 httptest server 来验证实际发出的请求 URL。
+}
+
+// TestSetAPIKey_DefaultURLs 测试 SetAPIKey 在 URL 为空时使用默认 URL
+func TestSetAPIKey_DefaultURLs(t *testing.T) {
+	// 测试所有在 DefaultProviderURLs 中定义的 provider
+	for provider, expectedURL := range DefaultProviderURLs {
+		t.Run(provider+"_with_empty_URL_uses_default", func(t *testing.T) {
+			client := New().(*Client)
+			client.SetAPIKey("test-api-key", "", "test-model", provider)
+
+			assert.Equal(t, expectedURL, client.BaseURL, "BaseURL should use default for "+provider)
+			assert.Equal(t, provider, client.Provider, "Provider should be set")
+		})
+
+		t.Run(provider+"_with_custom_URL_keeps_custom", func(t *testing.T) {
+			client := New().(*Client)
+			customURL := "https://custom.proxy.com/v1"
+			client.SetAPIKey("test-api-key", customURL, "test-model", provider)
+
+			assert.Equal(t, customURL, client.BaseURL, "BaseURL should keep custom URL")
+		})
+	}
+
+	// 测试未知 provider
+	t.Run("Unknown_provider_with_empty_URL_keeps_empty", func(t *testing.T) {
+		client := New().(*Client)
+		client.SetAPIKey("test-api-key", "", "test-model", "unknown")
+
+		assert.Equal(t, "", client.BaseURL, "BaseURL should be empty for unknown provider")
+	})
+
+	// 测试 custom provider
+	t.Run("Custom_provider_with_URL_keeps_URL", func(t *testing.T) {
+		client := New().(*Client)
+		client.SetAPIKey("test-api-key", "https://my-api.com/v1", "test-model", "custom")
+
+		assert.Equal(t, "https://my-api.com/v1", client.BaseURL, "BaseURL should keep custom URL")
+	})
+}
+
+// TestDeepSeekClient_SetAPIKey 测试 DeepSeek 客户端的 SetAPIKey 方法
+func TestDeepSeekClient_SetAPIKey(t *testing.T) {
+	t.Run("with_default_URL", func(t *testing.T) {
+		client := NewDeepSeekClient().(*DeepSeekClient)
+		client.SetAPIKey("sk-test-key", "", "", "deepseek")
+
+		assert.Equal(t, "sk-test-key", client.Client.APIKey)
+		assert.Equal(t, DefaultDeepSeekBaseURL, client.Client.BaseURL)
+		assert.Equal(t, DefaultDeepSeekModel, client.Client.Model)
+	})
+
+	t.Run("with_custom_URL", func(t *testing.T) {
+		client := NewDeepSeekClient().(*DeepSeekClient)
+		customURL := "https://custom.deepseek.com/v1"
+		client.SetAPIKey("sk-test-key", customURL, "", "deepseek")
+
+		assert.Equal(t, customURL, client.Client.BaseURL)
+	})
+
+	t.Run("with_custom_model", func(t *testing.T) {
+		client := NewDeepSeekClient().(*DeepSeekClient)
+		client.SetAPIKey("sk-test-key", "", "deepseek-coder", "deepseek")
+
+		assert.Equal(t, "deepseek-coder", client.Client.Model)
+	})
+}
+
+// TestQwenClient_SetAPIKey 测试 Qwen 客户端的 SetAPIKey 方法
+func TestQwenClient_SetAPIKey(t *testing.T) {
+	t.Run("with_default_URL", func(t *testing.T) {
+		client := NewQwenClient().(*QwenClient)
+		client.SetAPIKey("sk-test-key", "", "", "qwen")
+
+		assert.Equal(t, "sk-test-key", client.Client.APIKey)
+		assert.Equal(t, DefaultQwenBaseURL, client.Client.BaseURL)
+		assert.Equal(t, DefaultQwenModel, client.Client.Model)
+	})
+
+	t.Run("with_custom_URL", func(t *testing.T) {
+		client := NewQwenClient().(*QwenClient)
+		customURL := "https://custom.qwen.com/v1"
+		client.SetAPIKey("sk-test-key", customURL, "", "qwen")
+
+		assert.Equal(t, customURL, client.Client.BaseURL)
+	})
+
+	t.Run("with_custom_model", func(t *testing.T) {
+		client := NewQwenClient().(*QwenClient)
+		client.SetAPIKey("sk-test-key", "", "qwen-turbo", "qwen")
+
+		assert.Equal(t, "qwen-turbo", client.Client.Model)
+	})
 }
