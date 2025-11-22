@@ -118,3 +118,57 @@ func TestSetAPIKey_DefaultURLs(t *testing.T) {
 		assert.Equal(t, "https://my-api.com/v1", client.BaseURL, "BaseURL should keep custom URL")
 	})
 }
+
+// TestDeepSeekClient_SetAPIKey 测试 DeepSeek 客户端的 SetAPIKey 方法
+func TestDeepSeekClient_SetAPIKey(t *testing.T) {
+	t.Run("with_default_URL", func(t *testing.T) {
+		client := NewDeepSeekClient().(*DeepSeekClient)
+		client.SetAPIKey("sk-test-key", "", "", "deepseek")
+
+		assert.Equal(t, "sk-test-key", client.Client.APIKey)
+		assert.Equal(t, DefaultDeepSeekBaseURL, client.Client.BaseURL)
+		assert.Equal(t, DefaultDeepSeekModel, client.Client.Model)
+	})
+
+	t.Run("with_custom_URL", func(t *testing.T) {
+		client := NewDeepSeekClient().(*DeepSeekClient)
+		customURL := "https://custom.deepseek.com/v1"
+		client.SetAPIKey("sk-test-key", customURL, "", "deepseek")
+
+		assert.Equal(t, customURL, client.Client.BaseURL)
+	})
+
+	t.Run("with_custom_model", func(t *testing.T) {
+		client := NewDeepSeekClient().(*DeepSeekClient)
+		client.SetAPIKey("sk-test-key", "", "deepseek-coder", "deepseek")
+
+		assert.Equal(t, "deepseek-coder", client.Client.Model)
+	})
+}
+
+// TestQwenClient_SetAPIKey 测试 Qwen 客户端的 SetAPIKey 方法
+func TestQwenClient_SetAPIKey(t *testing.T) {
+	t.Run("with_default_URL", func(t *testing.T) {
+		client := NewQwenClient().(*QwenClient)
+		client.SetAPIKey("sk-test-key", "", "", "qwen")
+
+		assert.Equal(t, "sk-test-key", client.Client.APIKey)
+		assert.Equal(t, DefaultQwenBaseURL, client.Client.BaseURL)
+		assert.Equal(t, DefaultQwenModel, client.Client.Model)
+	})
+
+	t.Run("with_custom_URL", func(t *testing.T) {
+		client := NewQwenClient().(*QwenClient)
+		customURL := "https://custom.qwen.com/v1"
+		client.SetAPIKey("sk-test-key", customURL, "", "qwen")
+
+		assert.Equal(t, customURL, client.Client.BaseURL)
+	})
+
+	t.Run("with_custom_model", func(t *testing.T) {
+		client := NewQwenClient().(*QwenClient)
+		client.SetAPIKey("sk-test-key", "", "qwen-turbo", "qwen")
+
+		assert.Equal(t, "qwen-turbo", client.Client.Model)
+	})
+}
