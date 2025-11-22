@@ -198,43 +198,8 @@ func TestAddTraderFromDB_Providers(t *testing.T) {
 			tm := NewTraderManager()
 			traderID := "test-trader-" + tt.provider
 
-			// 准备测试数据
-			traderCfg := &config.TraderRecord{
-				ID:                  traderID,
-				UserID:              "test-user",
-				Name:                "Test Trader",
-				AIModelID:           "test-model-" + tt.provider,
-				ExchangeID:          "binance",
-				InitialBalance:      10000,
-				ScanIntervalMinutes: 3,
-				IsRunning:           false,
-				BTCETHLeverage:      10,
-				AltcoinLeverage:     5,
-				IsCrossMargin:       true,
-				TradingSymbols:      "BTC,ETH",
-			}
-
-			aiModelCfg := &config.AIModelConfig{
-				ID:              "test-model-" + tt.provider,
-				UserID:          "test-user",
-				Name:            "Test AI",
-				Provider:        tt.provider,
-				Enabled:         true,
-				APIKey:          tt.apiKey,
-				CustomAPIURL:    tt.customURL,
-				CustomModelName: tt.customModel,
-			}
-
-			exchangeCfg := &config.ExchangeConfig{
-				ID:        "binance",
-				UserID:    "test-user",
-				Name:      "Binance",
-				Type:      "binance",
-				Enabled:   true,
-				APIKey:    "binance-api-key",
-				SecretKey: "binance-secret-key",
-				Testnet:   false,
-			}
+			// 使用辅助函数创建测试配置
+			traderCfg, aiModelCfg, exchangeCfg := createTestConfigs(tt.provider, tt.apiKey, tt.customURL, tt.customModel)
 
 			// 调用 addTraderFromDB
 			err := tm.addTraderFromDB(
@@ -280,4 +245,49 @@ func TestAddTraderFromDB_Providers(t *testing.T) {
 			}
 		})
 	}
+}
+
+// createTestConfigs 辅助函数：创建测试所需的配置对象，减少代码重复
+func createTestConfigs(provider, apiKey, customURL, customModel string) (*config.TraderRecord, *config.AIModelConfig, *config.ExchangeConfig) {
+	traderID := "test-trader-" + provider
+	modelID := "test-model-" + provider
+
+	traderCfg := &config.TraderRecord{
+		ID:                  traderID,
+		UserID:              "test-user",
+		Name:                "Test Trader",
+		AIModelID:           modelID,
+		ExchangeID:          "binance",
+		InitialBalance:      10000,
+		ScanIntervalMinutes: 3,
+		IsRunning:           false,
+		BTCETHLeverage:      10,
+		AltcoinLeverage:     5,
+		IsCrossMargin:       true,
+		TradingSymbols:      "BTC,ETH",
+	}
+
+	aiModelCfg := &config.AIModelConfig{
+		ID:              modelID,
+		UserID:          "test-user",
+		Name:            "Test AI",
+		Provider:        provider,
+		Enabled:         true,
+		APIKey:          apiKey,
+		CustomAPIURL:    customURL,
+		CustomModelName: customModel,
+	}
+
+	exchangeCfg := &config.ExchangeConfig{
+		ID:        "binance",
+		UserID:    "test-user",
+		Name:      "Binance",
+		Type:      "binance",
+		Enabled:   true,
+		APIKey:    "binance-api-key",
+		SecretKey: "binance-secret-key",
+		Testnet:   false,
+	}
+
+	return traderCfg, aiModelCfg, exchangeCfg
 }
