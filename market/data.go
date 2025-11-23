@@ -104,6 +104,21 @@ func Get(symbol string) (*Data, error) {
 		}
 	}
 
+	// 获取日线K线数据用于计算24小时价格变化
+	klines1d, err := WSMonitorCli.GetCurrentKlines(symbol, "1d")
+	if err != nil {
+		log.Printf("获取日线K线失败: %v", err)
+	}
+
+	// 24小时价格变化 = 使用日线K线计算
+	priceChange24h := 0.0
+	if len(klines1d) >= 2 {
+		price24hAgo := klines1d[len(klines1d)-2].Close
+		if price24hAgo > 0 {
+			priceChange24h = ((currentPrice - price24hAgo) / price24hAgo) * 100
+		}
+	}
+
 	// 获取OI数据
 	oiData, err := getOpenInterestData(symbol)
 	if err != nil {
@@ -138,6 +153,7 @@ func Get(symbol string) (*Data, error) {
 		CurrentPrice:      currentPrice,
 		PriceChange1h:     priceChange1h,
 		PriceChange4h:     priceChange4h,
+		PriceChange24h:    priceChange24h,
 		CurrentEMA20:      currentEMA20,
 		CurrentMACD:       currentMACD,
 		CurrentRSI7:       currentRSI7,
@@ -648,8 +664,10 @@ func Format(data *Data, skipSymbolMention bool) string {
 
 	// 使用动态精度格式化价格
 	priceStr := formatPriceWithDynamicPrecision(data.CurrentPrice)
-	sb.WriteString(fmt.Sprintf("current_price = %s, current_ema20 = %.3f, current_macd = %.3f, current_rsi (7 period) = %.3f\n\n",
-		priceStr, data.CurrentEMA20, data.CurrentMACD, data.CurrentRSI7))
+	sb.WriteString(fmt.Sprintf("current_price = %s, price_change_1h = %.2f%%, price_change_4h = %.2f%%, price_change_24h = %.2f%%\n\n",
+		priceStr, data.PriceChange1h, data.PriceChange4h, data.PriceChange24h))
+	sb.WriteString(fmt.Sprintf("current_ema20 = %.3f, current_macd = %.3f, current_rsi (7 period) = %.3f\n\n",
+		data.CurrentEMA20, data.CurrentMACD, data.CurrentRSI7))
 
 	if skipSymbolMention {
 		sb.WriteString("Here is the latest open interest and funding rate for perps:\n\n")
