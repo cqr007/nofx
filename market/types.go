@@ -8,7 +8,6 @@ type Data struct {
 	CurrentPrice      float64
 	PriceChange1h     float64 // 1小时价格变化百分比
 	PriceChange4h     float64 // 4小时价格变化百分比
-	PriceChange24h    float64 // 24小时价格变化百分比
 	CurrentEMA20      float64
 	CurrentMACD       float64
 	CurrentRSI7       float64
@@ -18,7 +17,7 @@ type Data struct {
 	MidTermSeries15m  *MidTermData15m
 	MidTermSeries1h   *MidTermData1h
 	LongerTermContext *LongerTermData
-	DailyContext      *DailyData // 日线数据
+	DailyContext      *DailyData
 }
 
 // OIData Open Interest数据
@@ -27,7 +26,24 @@ type OIData struct {
 	Average float64
 }
 
-// IntradayData 日内数据(3分钟间隔)
+// DailyData 日线数据(7天)
+type DailyData struct {
+	Dates        []string  // 日期 YYYY-MM-DD
+	OpenPrices   []float64 // 开盘价
+	HighPrices   []float64 // 最高价
+	LowPrices    []float64 // 最低价
+	ClosePrices  []float64 // 收盘价
+	EMA20Values  []float64 // 20日均线
+	EMA50Values  []float64 // 50日均线
+	RSI14Values  []float64 // 14日RSI
+	Volume       []float64 // 成交量
+	ATR14        float64   // 14日ATR
+	Recent7High  float64   // 近7日最高
+	Recent7Low   float64   // 近7日最低
+	TrendBias    string    // "bullish" / "bearish" / "neutral"
+}
+
+// IntradayData 日内数据(5分钟间隔)
 type IntradayData struct {
 	MidPrices   []float64
 	EMA20Values []float64
@@ -70,18 +86,6 @@ type LongerTermData struct {
 	AverageVolume float64
 	MACDValues    []float64
 	RSI14Values   []float64
-}
-
-// DailyData 日线数据(1天时间框架)
-type DailyData struct {
-	MidPrices     []float64
-	EMA20Values   []float64
-	MACDValues    []float64
-	RSI14Values   []float64
-	Volume        []float64
-	ATR14         float64
-	EMA20         float64
-	EMA50         float64
 }
 
 // Binance API 响应结构

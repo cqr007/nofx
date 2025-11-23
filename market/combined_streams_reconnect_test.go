@@ -13,9 +13,9 @@ func TestCombinedStreamsClient_ReconnectResubscribes(t *testing.T) {
 
 	// 模拟初始化时添加的订阅者（正常情况下是在 Start() 时添加的）
 	expectedStreams := []string{
-		"btcusdt@kline_3m",
+		"btcusdt@kline_5m",
 		"ethusdt@kline_4h",
-		"solusdt@kline_3m",
+		"solusdt@kline_5m",
 		"btcusdt@kline_1d",
 	}
 
@@ -142,9 +142,9 @@ func TestCombinedStreamsClient_GetSubscribersList(t *testing.T) {
 
 	// 添加订阅者
 	expectedStreams := []string{
-		"btcusdt@kline_3m",
+		"btcusdt@kline_5m",
 		"ethusdt@kline_4h",
-		"solusdt@kline_3m",
+		"solusdt@kline_5m",
 		"btcusdt@kline_1d",
 	}
 
