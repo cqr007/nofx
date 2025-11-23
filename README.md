@@ -128,10 +128,12 @@ go build -o nofx .
 
 # 4. 准备配置文件
 cp config.json.example config.json
-# 编辑 config.json，修改 jwt_secret 为安全的随机字符串
-# 生成安全密钥: openssl rand -base64 64
 
-# 5. 运行（prompts/ 目录已包含默认提示词）
+# 5. 生成安全的 JWT 密钥（必须！否则无法启动）
+openssl rand -base64 64
+# 将生成的密钥复制到 config.json 的 jwt_secret 字段
+
+# 6. 运行（prompts/ 目录已包含默认提示词）
 ./nofx
 ```
 
