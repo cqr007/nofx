@@ -131,11 +131,7 @@ cp config.json.example config.json
 # 编辑 config.json，修改 jwt_secret 为安全的随机字符串
 # 生成安全密钥: openssl rand -base64 64
 
-# 5. 准备提示词目录
-mkdir -p prompts
-# 复制或创建提示词文件（如 default.txt）
-
-# 6. 运行
+# 5. 运行（prompts/ 目录已包含默认提示词）
 ./nofx
 ```
 
