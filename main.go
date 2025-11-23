@@ -41,18 +41,43 @@ type ConfigFile struct {
 	Log                    *config.LogConfig     `json:"log"`                      // 日志配置
 	TokenExpirationMinutes int                   `json:"token_expiration_minutes"` // Token 过期时间，单位分钟
 	AITemperature          *float64              `json:"ai_temperature"`           // AI 温度参数（0.0-1.0），默认 0.1
+	CorsAllowedOrigins     []string              `json:"cors_allowed_origins"`     // 允许的跨域 Origin
 }
 
-// loadConfigFile 读取并解析config.json文件
+// validateJWTSecret 验证 JWT 密钥安全性
+func validateJWTSecret(secret string) error {
+	const defaultSecret = "your-jwt-secret-key-change-in-production-make-it-long-and-random"
+	const minLength = 32
+
+	if secret == "" {
+		return fmt.Errorf("JWT 密钥为空")
+	}
+
+	if secret == defaultSecret {
+		return fmt.Errorf("使用了默认的不安全 JWT 密钥")
+	}
+
+	if len(secret) < minLength {
+		return fmt.Errorf("JWT 密钥长度不足 (当前: %d, 需至少: %d 字符)", len(secret), minLength)
+	}
+
+	return nil
+}
+
+// loadConfigFile 读取并解析config.json文件（必须存在）
 func loadConfigFile() (*ConfigFile, error) {
+	const configFileName = "config.json"
+
 	// 检查config.json是否存在
-	if _, err := os.Stat("config.json"); os.IsNotExist(err) {
-		log.Printf("📄 config.json不存在，使用默认配置")
-		return &ConfigFile{}, nil
+	if _, err := os.Stat(configFileName); err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("配置文件 %s 不存在，请先创建（可从 config.json.example 复制并按实际环境填写）", configFileName)
+		}
+		return nil, fmt.Errorf("检查配置文件 %s 失败: %w", configFileName, err)
 	}
 
 	// 读取config.json
-	data, err := os.ReadFile("config.json")
+	data, err := os.ReadFile(configFileName)
 	if err != nil {
 		return nil, fmt.Errorf("读取config.json失败: %w", err)
 	}
@@ -115,6 +140,14 @@ func syncConfigToDatabase(database *config.Database, configFile *ConfigFile) err
 	// 同步 AI 温度配置
 	if configFile.AITemperature != nil {
 		configs["ai_temperature"] = fmt.Sprintf("%.2f", *configFile.AITemperature)
+	}
+
+	// 同步 CORS 配置
+	if len(configFile.CorsAllowedOrigins) > 0 {
+		corsJSON, err := json.Marshal(configFile.CorsAllowedOrigins)
+		if err == nil {
+			configs["cors_allowed_origins"] = string(corsJSON)
+		}
 	}
 
 	// 更新数据库配置
@@ -233,17 +266,21 @@ func main() {
 	// 设置JWT密钥（优先使用环境变量）
 	jwtSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
 	if jwtSecret == "" {
-		// 回退到数据库配置
+		// 回退到数据库配置 (config.json 中的值)
+		// 注意：configFile 已经同步到数据库，所以 GetSystemConfig 获取的就是 config.json 中的值
 		jwtSecret, _ = database.GetSystemConfig("jwt_secret")
-		if jwtSecret == "" {
-			jwtSecret = "your-jwt-secret-key-change-in-production-make-it-long-and-random"
-			log.Printf("⚠️  使用默认JWT密钥，建议使用加密设置脚本生成安全密钥")
-		} else {
-			log.Printf("🔑 使用数据库中JWT密钥")
-		}
-	} else {
-		log.Printf("🔑 使用环境变量JWT密钥")
 	}
+
+	// 🛡️ 强制安全检查：验证 JWT 密钥安全性
+	if err := validateJWTSecret(jwtSecret); err != nil {
+		log.Printf("❌ 安全检查失败: %v", err)
+		log.Printf("💡 请在 config.json 中修改 jwt_secret，或设置环境变量 JWT_SECRET")
+		log.Printf("💡 建议使用以下命令生成安全密钥:")
+		log.Printf("   openssl rand -base64 32")
+		log.Fatalf("拒绝启动: 系统配置不安全")
+	}
+
+	log.Printf("✅ JWT 密钥安全检查通过")
 	auth.SetJWTSecret(jwtSecret)
 
 	// 管理员模式下需要管理员密码，缺失则退出
@@ -375,7 +412,7 @@ func main() {
 	}
 
 	// 创建并启动API服务器
-	apiServer := api.NewServer(traderManager, database, cryptoService, backtestManager, apiPort)
+	apiServer := api.NewServer(traderManager, database, cryptoService, backtestManager, apiPort, configFile.CorsAllowedOrigins)
 	go func() {
 		if err := apiServer.Start(); err != nil {
 			log.Printf("❌ API服务器错误: %v", err)

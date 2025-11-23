@@ -4,6 +4,33 @@
 - 编译命令：`./start.sh start --build`
 - **本地环境地址**：https://trade.llbrother.org
 
+## 🚨🚨🚨 最高优先级禁令 - NEVER EVER DO THIS 🚨🚨🚨
+
+### ❌ 绝对禁止触碰用户的符号链接（symlinks）
+
+**永远不要对用户的符号链接执行任何操作：**
+- ❌ **绝对禁止** `rm` 符号链接
+- ❌ **绝对禁止** `git checkout` 覆盖符号链接
+- ❌ **绝对禁止** 任何可能破坏符号链接的操作
+
+**血的教训（2024-11-23）**：
+- 用户的 `prompts` 是指向 `../prompts` 的符号链接（用户的个人配置）
+- Claude 为了解决 git stash 报错，擅自执行了 `rm prompts && git checkout HEAD -- prompts/`
+- **这直接删除了用户的符号链接配置！！！**
+- 这是**不可原谅的错误**，严重破坏了用户的工作环境
+
+**正确做法**：
+- 如果遇到符号链接导致的 git 问题，**立即停止并询问用户**
+- **绝不擅自处理**，让用户决定如何操作
+- 符号链接是用户的个人配置，Claude 无权修改
+
+**核心原则**：
+- 🔴 **符号链接 = 用户的私有配置 = 绝对禁区**
+- 🔴 **宁可操作失败，也绝不破坏用户配置**
+- 🔴 **任何涉及符号链接的操作，必须先询问用户**
+
+---
+
 ## 开发流程规则
 
 ### 编译和测试检查 - MANDATORY ⚠️🔥
@@ -112,6 +139,14 @@
 - 前端的所有显示 label, wording 这些，都要做多语言支持，多语言在 `web/src/i18n/translations.ts` 中，一定不能直接在 tsx 文件中写 raw string
 - Never run ./start.sh, 用户会自己在 terminal 运行这个命令
 
+## 数据库信息
+
+本项目使用 **SQLite** 数据库，文件位于项目根目录：
+
+- **数据库文件**：`config.db`（及 `config.db-wal`、`config.db-shm`）
+- **查询方式**：`sqlite3 config.db "SELECT * FROM traders;"`
+- **主要表**：`traders`（交易员配置）、`ai_models`（AI模型）、`exchanges`（交易所）
+
 ## 数据库操作规则 - HARD RULE
 
 **❌ 严格禁止在没有用户显式允许的情况下对数据库进行任何修改操作：**
@@ -172,6 +207,26 @@
 ⚠️ **永远不要直接提交 PR 到 `main` 分支！**
 - 除非用户明确要求，否则所有 PR 都应该提交到 `next`
 - `main` 分支只接受经过测试和验证的稳定版本
+
+### ⚠️ PR 创建前检查清单 - MANDATORY
+
+**创建 PR 前必须确认：**
+1. 当前分支名是 `feature/xxx` 或 `fix/xxx`，**不是** `next`
+2. PR 目标分支是 `next`，**不是** `main`
+
+```bash
+# 检查当前分支
+git branch --show-current  # 应该是 feature/xxx，不是 next！
+```
+
+**常见错误：**
+- ❌ 在 `next` 分支直接开发 → 应该先 `git checkout -b feature/xxx`
+- ❌ PR 从 `next` → `main` → 应该从 `feature/xxx` → `next`
+
+**⚠️ 血的教训（2024-11-23）**：
+- 在 `next` 分支直接开发，提交 PR 时想当然地选择了 `main` 作为目标
+- 导致 PR #90 创建错误，需要关闭并重建
+- **开始开发前，先创建 feature 分支！**
 
 ## Git 操作安全规则 - CRITICAL ⚠️🔥
 

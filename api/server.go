@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"math"
 	"net"
 	"net/http"
 	"nofx/auth"
+
 	"nofx/backtest"
 	"nofx/config"
 	"nofx/crypto"
@@ -16,6 +18,7 @@ import (
 	"nofx/hook"
 	"nofx/manager"
 	"nofx/trader"
+	"nofx/web"
 	"strconv"
 	"strings"
 	"time"
@@ -33,6 +36,7 @@ type Server struct {
 	cryptoHandler   *CryptoHandler
 	backtestManager *backtest.Manager
 	port            int
+	corsOrigins     []string
 }
 
 // NewServer 创建API服务器
@@ -42,14 +46,28 @@ func NewServer(
 	cryptoService *crypto.CryptoService,
 	backtestManager *backtest.Manager,
 	port int,
+	corsOrigins []string,
 ) *Server {
 	// 设置为Release模式（减少日志输出）
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.Default()
 
-	// 启用CORS
-	router.Use(corsMiddleware())
+	// 默认允许的 Origin
+	if len(corsOrigins) == 0 {
+		corsOrigins = []string{
+			"http://localhost:3000",
+			"http://127.0.0.1:3000",
+			fmt.Sprintf("http://localhost:%d", port),
+			fmt.Sprintf("http://127.0.0.1:%d", port),
+		}
+		log.Printf("⚠️ 未配置 cors_allowed_origins，使用默认开发环境配置: %v", corsOrigins)
+	} else {
+		log.Printf("🛡️ CORS 允许的 Origin: %v", corsOrigins)
+	}
+
+	// 启用CORS (注入配置)
+	// router.Use(s.corsMiddleware()) <- moved after struct init
 
 	// 创建加密处理器
 	cryptoHandler := NewCryptoHandler(cryptoService)
@@ -61,7 +79,12 @@ func NewServer(
 		cryptoHandler:   cryptoHandler,
 		backtestManager: backtestManager,
 		port:            port,
+		corsOrigins:     corsOrigins,
 	}
+
+	// 启用CORS (注入配置)
+	router.Use(s.corsMiddleware())
+
 	if s.backtestManager != nil {
 		s.backtestManager.SetAIResolver(s.hydrateBacktestAIConfig)
 	}
@@ -69,15 +92,82 @@ func NewServer(
 	// 设置路由
 	s.setupRoutes()
 
+	// 尝试服务前端静态文件
+	s.serveFrontend()
+
 	return s
 }
 
+// serveFrontend 服务前端静态文件（使用嵌入的文件系统）
+func (s *Server) serveFrontend() {
+	// 从嵌入的文件系统中提取 dist 子目录
+	distFS, err := fs.Sub(web.DistFS, "dist")
+	if err != nil {
+		log.Printf("⚠️  无法加载嵌入的前端文件: %v", err)
+		return
+	}
+
+	log.Println("🎨 使用嵌入的前端静态文件")
+
+	// 为每个静态资源目录创建独立的 SubFS
+	// 注意：StaticFS 会 strip 掉 URL 前缀，所以需要为每个目录创建对应的 SubFS
+	assetsFS, err := fs.Sub(distFS, "assets")
+	if err != nil {
+		log.Printf("⚠️  无法加载 assets 目录: %v", err)
+	} else {
+		s.router.StaticFS("/assets", http.FS(assetsFS))
+	}
+
+	iconsFS, err := fs.Sub(distFS, "icons")
+	if err != nil {
+		log.Printf("⚠️  无法加载 icons 目录: %v", err)
+	} else {
+		s.router.StaticFS("/icons", http.FS(iconsFS))
+	}
+
+	imagesFS, err := fs.Sub(distFS, "images")
+	if err != nil {
+		log.Printf("⚠️  无法加载 images 目录: %v", err)
+	} else {
+		s.router.StaticFS("/images", http.FS(imagesFS))
+	}
+
+	// SPA 回退路由：所有非 /api 开头的请求都返回 index.html
+	s.router.NoRoute(func(c *gin.Context) {
+		if !strings.HasPrefix(c.Request.URL.Path, "/api") {
+			// 从嵌入的文件系统读取 index.html
+			indexHTML, err := fs.ReadFile(distFS, "index.html")
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load index.html"})
+				return
+			}
+			c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
+		} else {
+			c.JSON(http.StatusNotFound, gin.H{"error": "API route not found"})
+		}
+	})
+}
+
 // corsMiddleware CORS中间件
-func corsMiddleware() gin.HandlerFunc {
+func (s *Server) corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		origin := c.Request.Header.Get("Origin")
+		allowed := false
+
+		// 检查 Origin 是否在白名单中
+		for _, o := range s.corsOrigins {
+			if o == "*" || o == origin {
+				allowed = true
+				break
+			}
+		}
+
+		if allowed {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusOK)
