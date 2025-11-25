@@ -115,6 +115,56 @@ type AutoTrader struct {
 	userID                string                           // 用户ID
 }
 
+// providerDisplayNames AI provider 显示名称映射
+var providerDisplayNames = map[string]string{
+	"custom":    "自定义AI API",
+	"openai":    "OpenAI API",
+	"anthropic": "Anthropic Claude API",
+	"gemini":    "Gemini API",
+	"groq":      "Groq API",
+	"grok":      "Grok API",
+	"qwen":      "阿里云Qwen AI",
+	"deepseek":  "DeepSeek AI",
+}
+
+// initMCPClient 初始化 AI MCP 客户端
+// 根据 config.AIModel 选择对应的 provider 并设置 API key
+func initMCPClient(config AutoTraderConfig) mcp.AIClient {
+	mcpClient := mcp.New()
+	provider := config.AIModel
+
+	// 使用 CustomAPIKey 的 provider（统一处理）
+	customKeyProviders := map[string]bool{
+		"custom": true, "openai": true, "anthropic": true,
+		"gemini": true, "groq": true, "grok": true,
+	}
+
+	if customKeyProviders[provider] {
+		mcpClient.SetAPIKey(config.CustomAPIKey, config.CustomAPIURL, config.CustomModelName, provider)
+		displayName := providerDisplayNames[provider]
+		if provider == "custom" {
+			log.Printf("🤖 [%s] 使用%s: %s (模型: %s)", config.Name, displayName, config.CustomAPIURL, config.CustomModelName)
+		} else {
+			log.Printf("🤖 [%s] 使用 %s (模型: %s)", config.Name, displayName, config.CustomModelName)
+		}
+		return mcpClient
+	}
+
+	// Qwen 使用专用 key
+	if provider == "qwen" || (provider == "" && config.UseQwen) {
+		mcpClient = mcp.NewQwenClient()
+		mcpClient.SetAPIKey(config.QwenKey, config.CustomAPIURL, config.CustomModelName, "qwen")
+		log.Printf("🤖 [%s] 使用阿里云Qwen AI", config.Name)
+		return mcpClient
+	}
+
+	// 默认: DeepSeek
+	mcpClient = mcp.NewDeepSeekClient()
+	mcpClient.SetAPIKey(config.DeepSeekKey, config.CustomAPIURL, config.CustomModelName, "deepseek")
+	log.Printf("🤖 [%s] 使用DeepSeek AI", config.Name)
+	return mcpClient
+}
+
 // NewAutoTrader 创建自动交易器
 func NewAutoTrader(config AutoTraderConfig, database interface{}, userID string) (*AutoTrader, error) {
 	// 设置默认值
@@ -132,44 +182,7 @@ func NewAutoTrader(config AutoTraderConfig, database interface{}, userID string)
 		}
 	}
 
-	mcpClient := mcp.New()
-
-	// 初始化AI
-	if config.AIModel == "custom" {
-		// 使用自定义API
-		mcpClient.SetAPIKey(config.CustomAPIKey, config.CustomAPIURL, config.CustomModelName, "custom")
-		log.Printf("🤖 [%s] 使用自定义AI API: %s (模型: %s)", config.Name, config.CustomAPIURL, config.CustomModelName)
-	} else if config.AIModel == "openai" {
-		// 使用 OpenAI API（URL 为空时使用默认）
-		mcpClient.SetAPIKey(config.CustomAPIKey, config.CustomAPIURL, config.CustomModelName, "openai")
-		log.Printf("🤖 [%s] 使用 OpenAI API (模型: %s)", config.Name, config.CustomModelName)
-	} else if config.AIModel == "gemini" {
-		// 使用 Google Gemini OpenAI 兼容 API（URL 为空时使用默认）
-		mcpClient.SetAPIKey(config.CustomAPIKey, config.CustomAPIURL, config.CustomModelName, "gemini")
-		log.Printf("🤖 [%s] 使用 Gemini API (模型: %s)", config.Name, config.CustomModelName)
-	} else if config.AIModel == "groq" {
-		// 使用 Groq OpenAI 兼容 API（URL 为空时使用默认）
-		mcpClient.SetAPIKey(config.CustomAPIKey, config.CustomAPIURL, config.CustomModelName, "groq")
-		log.Printf("🤖 [%s] 使用 Groq API (模型: %s)", config.Name, config.CustomModelName)
-	} else if config.UseQwen || config.AIModel == "qwen" {
-		// 使用Qwen (支持自定义URL和Model)
-		mcpClient = mcp.NewQwenClient()
-		mcpClient.SetAPIKey(config.QwenKey, config.CustomAPIURL, config.CustomModelName, "qwen")
-		if config.CustomAPIURL != "" || config.CustomModelName != "" {
-			log.Printf("🤖 [%s] 使用阿里云Qwen AI (自定义URL: %s, 模型: %s)", config.Name, config.CustomAPIURL, config.CustomModelName)
-		} else {
-			log.Printf("🤖 [%s] 使用阿里云Qwen AI", config.Name)
-		}
-	} else {
-		// 默认使用DeepSeek (支持自定义URL和Model)
-		mcpClient = mcp.NewDeepSeekClient()
-		mcpClient.SetAPIKey(config.DeepSeekKey, config.CustomAPIURL, config.CustomModelName, "deepseek")
-		if config.CustomAPIURL != "" || config.CustomModelName != "" {
-			log.Printf("🤖 [%s] 使用DeepSeek AI (自定义URL: %s, 模型: %s)", config.Name, config.CustomAPIURL, config.CustomModelName)
-		} else {
-			log.Printf("🤖 [%s] 使用DeepSeek AI", config.Name)
-		}
-	}
+	mcpClient := initMCPClient(config)
 
 	// 从数据库读取 AI Temperature 配置
 	if database != nil {

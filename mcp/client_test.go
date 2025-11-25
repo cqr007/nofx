@@ -304,3 +304,71 @@ func TestAIClient_SetTemperature(t *testing.T) {
 		})
 	}
 }
+
+// anthropicMockResponse 返回标准的 Anthropic API 响应
+func anthropicMockResponse(text string) map[string]interface{} {
+	return map[string]interface{}{
+		"content":     []interface{}{map[string]interface{}{"type": "text", "text": text}},
+		"stop_reason": "end_turn",
+		"usage":       map[string]interface{}{"input_tokens": 10, "output_tokens": 5},
+	}
+}
+
+// setupAnthropicClient 创建配置好的 Anthropic 测试客户端
+func setupAnthropicClient(serverURL string) *Client {
+	client := New().(*Client)
+	client.SetAPIKey("sk-ant-test-key", serverURL, "claude-3-opus", "anthropic")
+	client.Timeout = 1 * time.Second
+	return client
+}
+
+// TestAnthropicAPICall 测试 Anthropic Claude API 的原生调用
+func TestAnthropicAPICall(t *testing.T) {
+	t.Run("认证头和端点", func(t *testing.T) {
+		var authHeader, path string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authHeader = r.Header.Get("x-api-key")
+			path = r.URL.Path
+			json.NewEncoder(w).Encode(anthropicMockResponse("ok"))
+		}))
+		defer server.Close()
+
+		client := setupAnthropicClient(server.URL)
+		_, _ = client.CallWithMessages("system", "user")
+
+		assert.Equal(t, "sk-ant-test-key", authHeader, "应使用 x-api-key 认证头")
+		assert.Equal(t, "/messages", path, "应使用 /messages 端点")
+	})
+
+	t.Run("请求格式_system独立字段", func(t *testing.T) {
+		var reqBody map[string]interface{}
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			json.NewDecoder(r.Body).Decode(&reqBody)
+			json.NewEncoder(w).Encode(anthropicMockResponse("ok"))
+		}))
+		defer server.Close()
+
+		client := setupAnthropicClient(server.URL)
+		_, _ = client.CallWithMessages("You are helpful", "Hello")
+
+		// system 应为独立字段
+		assert.Equal(t, "You are helpful", reqBody["system"])
+		// messages 只含 user
+		messages := reqBody["messages"].([]interface{})
+		assert.Equal(t, 1, len(messages))
+		assert.Equal(t, "user", messages[0].(map[string]interface{})["role"])
+	})
+
+	t.Run("响应解析_content数组", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			json.NewEncoder(w).Encode(anthropicMockResponse("Claude's response"))
+		}))
+		defer server.Close()
+
+		client := setupAnthropicClient(server.URL)
+		result, err := client.CallWithMessages("system", "user")
+
+		assert.NoError(t, err)
+		assert.Equal(t, "Claude's response", result)
+	})
+}

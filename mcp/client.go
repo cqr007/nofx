@@ -23,16 +23,18 @@ var (
 	// DefaultProviderURLs 各 provider 的默认 API URL
 	// 新增 provider 时只需在此 map 中添加即可
 	DefaultProviderURLs = map[string]string{
-		"openai": "https://api.openai.com/v1",
-		"gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
-		"grok":   "https://api.x.ai/v1",
+		"openai":    "https://api.openai.com/v1",
+		"anthropic": "https://api.anthropic.com/v1",
+		"gemini":    "https://generativelanguage.googleapis.com/v1beta/openai",
+		"grok":      "https://api.x.ai/v1",
 	}
 
 	// DefaultProviderModels 各 provider 的默认模型名称
 	DefaultProviderModels = map[string]string{
-		"openai": "gpt-5.1",
-		"gemini": "gemini-2.5-pro",
-		"grok":   "grok-4",
+		"openai":    "gpt-5.1",
+		"anthropic": "claude-sonnet-4-20250514",
+		"gemini":    "gemini-2.5-pro",
+		"grok":      "grok-4",
 	}
 )
 
@@ -143,7 +145,14 @@ func (client *Client) CallWithMessages(systemPrompt, userPrompt string) (string,
 }
 
 func (client *Client) setAuthHeader(reqHeader http.Header) {
-	reqHeader.Set("Authorization", fmt.Sprintf("Bearer %s", client.APIKey))
+	if client.Provider == "anthropic" {
+		// Anthropic 使用 x-api-key 认证头
+		reqHeader.Set("x-api-key", client.APIKey)
+		reqHeader.Set("anthropic-version", "2023-06-01")
+	} else {
+		// OpenAI 兼容 API 使用 Bearer token
+		reqHeader.Set("Authorization", fmt.Sprintf("Bearer %s", client.APIKey))
+	}
 }
 
 // SetTemperature 设置 AI 温度参数（0.0-1.0），控制输出随机性
@@ -163,29 +172,59 @@ func (client *Client) callOnce(systemPrompt, userPrompt string) (string, error) 
 		log.Printf("   API Key: %s...%s", client.APIKey[:4], client.APIKey[len(client.APIKey)-4:])
 	}
 
-	// 构建 messages 数组
-	messages := []map[string]string{}
+	var requestBody map[string]interface{}
+	var url string
 
-	// 如果有 system prompt，添加 system message
-	if systemPrompt != "" {
+	if client.Provider == "anthropic" {
+		// Anthropic Claude API 格式
+		// - system prompt 作为独立字段
+		// - messages 只包含 user 消息
+		// - 端点是 /messages
+		messages := []map[string]string{
+			{"role": "user", "content": userPrompt},
+		}
+
+		requestBody = map[string]interface{}{
+			"model":       client.Model,
+			"messages":    messages,
+			"temperature": client.Temperature,
+			"max_tokens":  client.MaxTokens,
+		}
+
+		// Anthropic 的 system prompt 作为独立字段
+		if systemPrompt != "" {
+			requestBody["system"] = systemPrompt
+		}
+
+		baseURL := strings.TrimSuffix(client.BaseURL, "/")
+		url = fmt.Sprintf("%s/messages", baseURL)
+	} else {
+		// OpenAI 兼容格式（包括 DeepSeek, Qwen, Gemini, Groq 等）
+		messages := []map[string]string{}
+		if systemPrompt != "" {
+			messages = append(messages, map[string]string{
+				"role":    "system",
+				"content": systemPrompt,
+			})
+		}
 		messages = append(messages, map[string]string{
-			"role":    "system",
-			"content": systemPrompt,
+			"role":    "user",
+			"content": userPrompt,
 		})
-	}
 
-	// 添加 user message
-	messages = append(messages, map[string]string{
-		"role":    "user",
-		"content": userPrompt,
-	})
+		requestBody = map[string]interface{}{
+			"model":       client.Model,
+			"messages":    messages,
+			"temperature": client.Temperature,
+			"max_tokens":  client.MaxTokens,
+		}
 
-	// 构建请求体
-	requestBody := map[string]interface{}{
-		"model":       client.Model,
-		"messages":    messages,
-		"temperature": client.Temperature,
-		"max_tokens":  client.MaxTokens,
+		if client.UseFullURL {
+			url = client.BaseURL
+		} else {
+			baseURL := strings.TrimSuffix(client.BaseURL, "/")
+			url = fmt.Sprintf("%s/chat/completions", baseURL)
+		}
 	}
 
 	log.Printf("📡 [MCP] 请求参数: max_tokens=%d, temperature=%.1f", client.MaxTokens, client.Temperature)
@@ -195,16 +234,6 @@ func (client *Client) callOnce(systemPrompt, userPrompt string) (string, error) 
 		return "", fmt.Errorf("序列化请求失败: %w", err)
 	}
 
-	// 创建HTTP请求
-	var url string
-	if client.UseFullURL {
-		// 使用完整URL，不添加/chat/completions
-		url = client.BaseURL
-	} else {
-		// 默认行为：添加/chat/completions
-		baseURL := strings.TrimSuffix(client.BaseURL, "/")
-		url = fmt.Sprintf("%s/chat/completions", baseURL)
-	}
 	log.Printf("📡 [MCP] 请求 URL: %s", url)
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
@@ -234,7 +263,45 @@ func (client *Client) callOnce(systemPrompt, userPrompt string) (string, error) 
 		return "", fmt.Errorf("API返回错误 (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	// 解析响应
+	// 根据 provider 解析不同响应格式
+	if client.Provider == "anthropic" {
+		// Anthropic 响应格式: content[0].text
+		var anthropicResult struct {
+			Content []struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			} `json:"content"`
+			StopReason string `json:"stop_reason"`
+			Usage      struct {
+				InputTokens  int `json:"input_tokens"`
+				OutputTokens int `json:"output_tokens"`
+			} `json:"usage"`
+		}
+
+		if err := json.Unmarshal(body, &anthropicResult); err != nil {
+			return "", fmt.Errorf("解析Anthropic响应失败: %w", err)
+		}
+
+		if len(anthropicResult.Content) == 0 {
+			return "", fmt.Errorf("Anthropic API返回空响应")
+		}
+
+		// 打印响应详情
+		log.Printf("📡 [MCP] Anthropic响应详情: stop_reason=%s, input_tokens=%d, output_tokens=%d",
+			anthropicResult.StopReason,
+			anthropicResult.Usage.InputTokens,
+			anthropicResult.Usage.OutputTokens)
+
+		// 检查是否因为长度限制而截断
+		if anthropicResult.StopReason == "max_tokens" {
+			log.Printf("⚠️  [MCP] 警告: AI响应因max_tokens限制被截断！当前max_tokens=%d, 实际使用output_tokens=%d",
+				client.MaxTokens, anthropicResult.Usage.OutputTokens)
+		}
+
+		return anthropicResult.Content[0].Text, nil
+	}
+
+	// OpenAI 兼容格式响应解析
 	var result struct {
 		Choices []struct {
 			Message struct {
