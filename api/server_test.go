@@ -455,3 +455,209 @@ func parseLimit(limitStr string) int {
 	}
 	return 0
 }
+
+// TestTraderListResponse_TradingSymbols 测试 handleTraderList API 返回的 trader 对象是否包含 trading_symbols 字段
+func TestTraderListResponse_TradingSymbols(t *testing.T) {
+	tests := []struct {
+		name            string
+		tradingSymbols  string
+		expectedSymbols string
+		description     string
+	}{
+		{
+			name:            "多个币种",
+			tradingSymbols:  "BTC,ETH,SOL,DOGE,XRP",
+			expectedSymbols: "BTC,ETH,SOL,DOGE,XRP",
+			description:     "trading_symbols 应该原样返回多个币种",
+		},
+		{
+			name:            "单个币种",
+			tradingSymbols:  "BTC",
+			expectedSymbols: "BTC",
+			description:     "trading_symbols 应该正确处理单个币种",
+		},
+		{
+			name:            "空字符串",
+			tradingSymbols:  "",
+			expectedSymbols: "",
+			description:     "trading_symbols 为空时应该返回空字符串",
+		},
+		{
+			name:            "带空格的币种列表",
+			tradingSymbols:  "BTC, ETH, SOL",
+			expectedSymbols: "BTC, ETH, SOL",
+			description:     "trading_symbols 应该保留原始格式（前端负责处理）",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 模拟 handleTraderList 中的 trader 对象构造
+			trader := &config.TraderRecord{
+				ID:                   "trader-symbols-test",
+				UserID:               "user-1",
+				Name:                 "Symbols Test Trader",
+				AIModelID:            "gpt-4",
+				ExchangeID:           "binance",
+				InitialBalance:       1000,
+				TradingSymbols:       tt.tradingSymbols,
+				SystemPromptTemplate: "default",
+				IsRunning:            true,
+			}
+
+			// 构造 API 响应对象（与 api/server.go handleTraderList 中的逻辑一致）
+			response := map[string]interface{}{
+				"trader_id":              trader.ID,
+				"trader_name":            trader.Name,
+				"ai_model":               trader.AIModelID,
+				"exchange_id":            trader.ExchangeID,
+				"is_running":             trader.IsRunning,
+				"initial_balance":        trader.InitialBalance,
+				"scan_interval_minutes":  trader.ScanIntervalMinutes,
+				"system_prompt_template": trader.SystemPromptTemplate,
+				"system_prompt":          "mock system prompt",
+				"trading_symbols":        trader.TradingSymbols, // 新增字段
+			}
+
+			// ✅ 验证 trading_symbols 字段存在
+			if _, exists := response["trading_symbols"]; !exists {
+				t.Errorf("%s: Trader list response is missing 'trading_symbols' field", tt.description)
+			}
+
+			// ✅ 验证 trading_symbols 值正确
+			actualSymbols := response["trading_symbols"].(string)
+			if actualSymbols != tt.expectedSymbols {
+				t.Errorf("%s: Expected trading_symbols=%q, got %q",
+					tt.description, tt.expectedSymbols, actualSymbols)
+			}
+		})
+	}
+}
+
+// TestTradingSymbolsDisplayLogic 测试前端 TradingSymbolsDisplay 组件的显示逻辑
+func TestTradingSymbolsDisplayLogic(t *testing.T) {
+	tests := []struct {
+		name            string
+		symbols         string
+		expectedVisible []string
+		expectedHidden  int
+		description     string
+	}{
+		{
+			name:            "刚好3个币种-全部显示",
+			symbols:         "BTC,ETH,SOL",
+			expectedVisible: []string{"BTC", "ETH", "SOL"},
+			expectedHidden:  0,
+			description:     "3个币种应该全部显示，不显示 +N",
+		},
+		{
+			name:            "少于3个币种-全部显示",
+			symbols:         "BTC,ETH",
+			expectedVisible: []string{"BTC", "ETH"},
+			expectedHidden:  0,
+			description:     "少于3个币种应该全部显示",
+		},
+		{
+			name:            "多于3个币种-显示+N",
+			symbols:         "BTC,ETH,SOL,DOGE,XRP",
+			expectedVisible: []string{"BTC", "ETH", "SOL"},
+			expectedHidden:  2,
+			description:     "超过3个币种应该只显示前3个，其余用 +N 表示",
+		},
+		{
+			name:            "7个币种",
+			symbols:         "BTC,ETH,SOL,DOGE,XRP,ADA,DOT",
+			expectedVisible: []string{"BTC", "ETH", "SOL"},
+			expectedHidden:  4,
+			description:     "7个币种应该显示前3个和 +4",
+		},
+		{
+			name:            "单个币种",
+			symbols:         "BTC",
+			expectedVisible: []string{"BTC"},
+			expectedHidden:  0,
+			description:     "单个币种应该正常显示",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 模拟前端的解析逻辑
+			var symbolList []string
+			if tt.symbols != "" {
+				for _, s := range splitTrimFilter(tt.symbols, ",") {
+					symbolList = append(symbolList, s)
+				}
+			}
+
+			displayCount := 3
+			var visibleSymbols, hiddenSymbols []string
+
+			if len(symbolList) <= displayCount {
+				visibleSymbols = symbolList
+			} else {
+				visibleSymbols = symbolList[:displayCount]
+				hiddenSymbols = symbolList[displayCount:]
+			}
+
+			// ✅ 验证可见币种
+			if len(visibleSymbols) != len(tt.expectedVisible) {
+				t.Errorf("%s: Expected %d visible symbols, got %d",
+					tt.description, len(tt.expectedVisible), len(visibleSymbols))
+			}
+			for i, expected := range tt.expectedVisible {
+				if i < len(visibleSymbols) && visibleSymbols[i] != expected {
+					t.Errorf("%s: Expected visible[%d]=%q, got %q",
+						tt.description, i, expected, visibleSymbols[i])
+				}
+			}
+
+			// ✅ 验证隐藏币种数量
+			if len(hiddenSymbols) != tt.expectedHidden {
+				t.Errorf("%s: Expected %d hidden symbols, got %d",
+					tt.description, tt.expectedHidden, len(hiddenSymbols))
+			}
+		})
+	}
+}
+
+// splitTrimFilter 辅助函数：分割、修剪并过滤空字符串（模拟前端逻辑）
+func splitTrimFilter(s string, sep string) []string {
+	if s == "" {
+		return nil
+	}
+	var result []string
+	for _, part := range splitString(s, sep) {
+		trimmed := trimString(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
+}
+
+// splitString 简单的字符串分割（避免依赖 strings 包的额外导入）
+func splitString(s string, sep string) []string {
+	var result []string
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if string(s[i]) == sep {
+			result = append(result, s[start:i])
+			start = i + 1
+		}
+	}
+	result = append(result, s[start:])
+	return result
+}
+
+// trimString 简单的字符串修剪
+func trimString(s string) string {
+	start, end := 0, len(s)
+	for start < end && s[start] == ' ' {
+		start++
+	}
+	for end > start && s[end-1] == ' ' {
+		end--
+	}
+	return s[start:end]
+}

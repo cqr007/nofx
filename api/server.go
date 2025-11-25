@@ -1448,6 +1448,7 @@ func (s *Server) handleTraderList(c *gin.Context) {
 			"scan_interval_minutes":  trader.ScanIntervalMinutes,
 			"system_prompt_template": trader.SystemPromptTemplate,
 			"system_prompt":          systemPrompt,
+			"trading_symbols":        trader.TradingSymbols,
 		})
 	}
 
