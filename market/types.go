@@ -36,6 +36,7 @@ type DailyData struct {
 	ClosePrices  []float64 // 收盘价
 	EMA20Values  []float64 // 20日均线
 	EMA50Values  []float64 // 50日均线
+	MACDValues   []float64 // MACD
 	RSI14Values  []float64 // 14日RSI
 	Volume       []float64 // 成交量
 	ATR14        float64   // 14日ATR

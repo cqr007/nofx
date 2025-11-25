@@ -608,6 +608,7 @@ func getDailyData(symbol string) (*DailyData, error) {
 	// 计算指标 (基于全部数据)
 	data.EMA20Values = make([]float64, len(klines))
 	data.EMA50Values = make([]float64, len(klines))
+	data.MACDValues = make([]float64, len(klines))
 	data.RSI14Values = make([]float64, len(klines))
 
 	// 计算指标需要使用 fullKlines
@@ -621,6 +622,9 @@ func getDailyData(symbol string) (*DailyData, error) {
 		}
 		if fullIdx >= 49 {
 			data.EMA50Values[i] = calculateEMA(fullKlines[:fullIdx+1], 50)
+		}
+		if fullIdx >= 25 {
+			data.MACDValues[i] = calculateMACD(fullKlines[:fullIdx+1])
 		}
 		if fullIdx >= 14 {
 			data.RSI14Values[i] = calculateRSI(fullKlines[:fullIdx+1], 14)
@@ -829,6 +833,16 @@ func Format(data *Data, skipSymbolMention bool) string {
 				data.DailyContext.HighPrices[i],
 				data.DailyContext.LowPrices[i],
 				data.DailyContext.ClosePrices[i]))
+		}
+
+		// MACD序列（最近10天）
+		if len(data.DailyContext.MACDValues) > 0 {
+			startMACD := len(data.DailyContext.MACDValues) - 10
+			if startMACD < 0 {
+				startMACD = 0
+			}
+			sb.WriteString(fmt.Sprintf("\nDaily MACD (last 10): %v\n",
+				formatFloatSlice(data.DailyContext.MACDValues[startMACD:])))
 		}
 
 		// RSI序列（最近10天）
