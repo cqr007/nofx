@@ -101,6 +101,7 @@ export interface TraderInfo {
   system_prompt_template?: string
   system_prompt?: string // 完整的 system prompt 内容（用于查看）
   scan_interval_minutes?: number
+  trading_symbols?: string // 关注的币种列表（逗号分隔）
 }
 
 export interface AIModel {

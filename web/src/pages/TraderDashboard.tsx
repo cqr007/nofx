@@ -23,8 +23,10 @@ import {
   X,
   XCircle,
   Eye,
+  Copy,
 } from 'lucide-react'
 import { stripLeadingIcons } from '../lib/text'
+import { copyWithToast } from '../lib/clipboard'
 import { ExchangeLink } from '../components/ExchangeLink'
 import type {
   SystemStatus,
@@ -401,6 +403,12 @@ export default function TraderDashboard() {
             <>
               <span className="hidden sm:inline">•</span>
               <span className="whitespace-nowrap">Interval: {selectedTrader.scan_interval_minutes} min</span>
+            </>
+          )}
+          {selectedTrader.trading_symbols && (
+            <>
+              <span className="hidden sm:inline">•</span>
+              <TradingSymbolsDisplay symbols={selectedTrader.trading_symbols} language={language} />
             </>
           )}
         </div>
@@ -874,15 +882,25 @@ function DecisionCard({
             </span>
           </button>
           {showCoT && (
-            <div
-              className="mt-2 rounded p-4 text-sm font-mono whitespace-pre-wrap max-h-96 overflow-y-auto"
-              style={{
-                background: '#0B0E11',
-                border: '1px solid #2B3139',
-                color: '#EAECEF',
-              }}
-            >
-              {decision.cot_trace}
+            <div className="mt-2 relative">
+              <button
+                onClick={() => copyWithToast(decision.cot_trace, t('copied', language))}
+                className="absolute top-2 right-2 p-1.5 rounded hover:bg-gray-700 transition-colors z-10"
+                title={t('copy', language)}
+                style={{ background: 'rgba(43, 49, 57, 0.8)' }}
+              >
+                <Copy className="w-4 h-4" style={{ color: '#848E9C' }} />
+              </button>
+              <div
+                className="rounded p-4 text-sm font-mono whitespace-pre-wrap max-h-96 overflow-y-auto"
+                style={{
+                  background: '#0B0E11',
+                  border: '1px solid #2B3139',
+                  color: '#EAECEF',
+                }}
+              >
+                {decision.cot_trace}
+              </div>
             </div>
           )}
         </div>
@@ -1043,5 +1061,40 @@ function DecisionCard({
         </div>
       )}
     </div>
+  )
+}
+
+// TradingSymbolsDisplay Component - 显示关注币种列表，默认显示3个
+function TradingSymbolsDisplay({
+  symbols,
+  language,
+}: {
+  symbols: string
+  language: Language
+}) {
+  const symbolList = symbols.split(',').map(s => s.trim()).filter(s => s)
+  const displayCount = 3
+  const visibleSymbols = symbolList.slice(0, displayCount)
+  const hiddenSymbols = symbolList.slice(displayCount)
+  const hasMore = hiddenSymbols.length > 0
+
+  if (symbolList.length === 0) return null
+
+  return (
+    <span className="whitespace-nowrap flex items-center gap-1">
+      <span style={{ color: '#848E9C' }}>{t('coins', language)}:</span>
+      <span className="font-semibold" style={{ color: '#60a5fa' }}>
+        {visibleSymbols.join(', ')}
+      </span>
+      {hasMore && (
+        <span
+          className="cursor-help px-1.5 py-0.5 rounded text-xs"
+          style={{ background: 'rgba(96, 165, 250, 0.1)', color: '#60a5fa' }}
+          title={symbolList.join(', ')}
+        >
+          +{hiddenSymbols.length}
+        </span>
+      )}
+    </span>
   )
 }
