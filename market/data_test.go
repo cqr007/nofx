@@ -172,12 +172,16 @@ func TestCalculateIntradaySeries_ATR14(t *testing.T) {
 				t.Fatal("calculateIntradaySeries returned nil")
 			}
 
-			if tt.expectZero && data.ATR14 != 0 {
-				t.Errorf("ATR14 = %.3f, expected 0 (insufficient data)", data.ATR14)
+			if tt.expectZero && len(data.ATR14Values) != 0 {
+				t.Errorf("ATR14Values length = %d, expected 0 (insufficient data)", len(data.ATR14Values))
 			}
 
-			if tt.expectNonZero && data.ATR14 <= 0 {
-				t.Errorf("ATR14 = %.3f, expected > 0", data.ATR14)
+			if tt.expectNonZero && len(data.ATR14Values) == 0 {
+				t.Errorf("ATR14Values length = 0, expected > 0")
+			}
+
+			if tt.expectNonZero && len(data.ATR14Values) > 0 && data.ATR14Values[len(data.ATR14Values)-1] <= 0 {
+				t.Errorf("Last ATR14Value = %.3f, expected > 0", data.ATR14Values[len(data.ATR14Values)-1])
 			}
 		})
 	}
@@ -322,9 +326,9 @@ func TestCalculateIntradaySeries_EmptyKlines(t *testing.T) {
 		t.Errorf("Volume length = %d, want 0", len(data.Volume))
 	}
 
-	// ATR14 应该为 0（数据不足）
-	if data.ATR14 != 0 {
-		t.Errorf("ATR14 = %.3f, want 0", data.ATR14)
+	// ATR14Values 应该为空（数据不足）
+	if len(data.ATR14Values) != 0 {
+		t.Errorf("ATR14Values length = %d, want 0", len(data.ATR14Values))
 	}
 }
 
@@ -490,5 +494,149 @@ func TestIsStaleData_EmptyKlines(t *testing.T) {
 
 	if result {
 		t.Error("Expected false for empty klines, got true")
+	}
+}
+
+// TestCalculateATRSeries 测试 ATR 序列计算
+func TestCalculateATRSeries(t *testing.T) {
+	tests := []struct {
+		name           string
+		klineCount     int
+		period         int
+		expectedLen    int
+		expectNonEmpty bool
+	}{
+		{
+			name:           "足够数据 - 100根K线, period=14",
+			klineCount:     100,
+			period:         14,
+			expectedLen:    10, // 最多返回10个点
+			expectNonEmpty: true,
+		},
+		{
+			name:           "刚好足够 - 24根K线 (14+10), period=14",
+			klineCount:     24,
+			period:         14,
+			expectedLen:    10,
+			expectNonEmpty: true,
+		},
+		{
+			name:           "部分数据 - 20根K线, period=14",
+			klineCount:     20,
+			period:         14,
+			expectedLen:    6, // 20 - 14 = 6个点
+			expectNonEmpty: true,
+		},
+		{
+			name:           "最少数据 - 15根K线, period=14",
+			klineCount:     15,
+			period:         14,
+			expectedLen:    1, // 只有1个ATR值
+			expectNonEmpty: true,
+		},
+		{
+			name:           "数据不足 - 14根K线, period=14",
+			klineCount:     14,
+			period:         14,
+			expectedLen:    0,
+			expectNonEmpty: false,
+		},
+		{
+			name:           "数据不足 - 10根K线, period=14",
+			klineCount:     10,
+			period:         14,
+			expectedLen:    0,
+			expectNonEmpty: false,
+		},
+		{
+			name:           "空数据",
+			klineCount:     0,
+			period:         14,
+			expectedLen:    0,
+			expectNonEmpty: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			klines := generateTestKlines(tt.klineCount)
+			atrValues := calculateATRSeries(klines, tt.period)
+
+			if len(atrValues) != tt.expectedLen {
+				t.Errorf("calculateATRSeries() length = %d, want %d", len(atrValues), tt.expectedLen)
+			}
+
+			if tt.expectNonEmpty {
+				for i, v := range atrValues {
+					if v <= 0 {
+						t.Errorf("ATR[%d] = %.3f, expected > 0", i, v)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestCalculateATRSeries_ValuesConsistency 测试 ATR 序列值与单值计算的一致性
+func TestCalculateATRSeries_ValuesConsistency(t *testing.T) {
+	klines := generateTestKlines(30)
+
+	// 序列最后一个值应该等于单值计算的结果
+	atrSeries := calculateATRSeries(klines, 14)
+	atrSingle := calculateATR(klines, 14)
+
+	if len(atrSeries) == 0 {
+		t.Fatal("ATR series should not be empty")
+	}
+
+	lastValue := atrSeries[len(atrSeries)-1]
+	tolerance := 0.0001
+
+	if math.Abs(lastValue-atrSingle) > tolerance {
+		t.Errorf("Last ATR series value (%.6f) should equal single ATR (%.6f)",
+			lastValue, atrSingle)
+	}
+}
+
+// TestCalculateATRSeries_TrendDetection 测试 ATR 序列能够检测趋势
+func TestCalculateATRSeries_TrendDetection(t *testing.T) {
+	// 创建波动率递增的K线数据
+	expandingKlines := make([]Kline, 30)
+	for i := 0; i < 30; i++ {
+		basePrice := 100.0
+		// 波动率随时间增加
+		volatility := 1.0 + float64(i)*0.1
+		expandingKlines[i] = Kline{
+			High:  basePrice + volatility,
+			Low:   basePrice - volatility,
+			Close: basePrice,
+		}
+	}
+
+	atrSeries := calculateATRSeries(expandingKlines, 14)
+
+	if len(atrSeries) < 2 {
+		t.Fatal("ATR series should have at least 2 values for trend detection")
+	}
+
+	// 验证 ATR 序列整体呈递增趋势
+	firstHalf := atrSeries[:len(atrSeries)/2]
+	secondHalf := atrSeries[len(atrSeries)/2:]
+
+	avgFirst := 0.0
+	for _, v := range firstHalf {
+		avgFirst += v
+	}
+	avgFirst /= float64(len(firstHalf))
+
+	avgSecond := 0.0
+	for _, v := range secondHalf {
+		avgSecond += v
+	}
+	avgSecond /= float64(len(secondHalf))
+
+	if avgSecond <= avgFirst {
+		t.Errorf("Expanding volatility should produce increasing ATR: first half avg=%.3f, second half avg=%.3f",
+			avgFirst, avgSecond)
 	}
 }

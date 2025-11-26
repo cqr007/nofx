@@ -35,8 +35,8 @@ func Get(symbol string) (*Data, error) {
 	var err error
 	// 标准化symbol
 	symbol = Normalize(symbol)
-	// 获取5分钟K线数据 (最近10个)
-	klines5m, err = WSMonitorCli.GetCurrentKlines(symbol, "5m") // 多获取一些用于计算
+	// 获取5分钟K线数据 (缓存中约100根，用于计算指标)
+	klines5m, err = WSMonitorCli.GetCurrentKlines(symbol, "5m")
 	if err != nil {
 		return nil, fmt.Errorf("获取5分钟K线失败: %v", err)
 	}
@@ -47,20 +47,20 @@ func Get(symbol string) (*Data, error) {
 		return nil, fmt.Errorf("%s data is stale, possible cache failure", symbol)
 	}
 
-	// 获取15分钟K线数据 (最近10个)
+	// 获取15分钟K线数据 (缓存中约100根)
 	klines15m, err = WSMonitorCli.GetCurrentKlines(symbol, "15m")
 	if err != nil {
 		return nil, fmt.Errorf("获取15分钟K线失败: %v", err)
 	}
 
-	// 获取1小时K线数据 (最近10个)
+	// 获取1小时K线数据 (缓存中约100根)
 	klines1h, err = WSMonitorCli.GetCurrentKlines(symbol, "1h")
 	if err != nil {
 		return nil, fmt.Errorf("获取1小时K线失败: %v", err)
 	}
 
-	// 获取4小时K线数据 (最近10个)
-	klines4h, err = WSMonitorCli.GetCurrentKlines(symbol, "4h") // 多获取用于计算指标
+	// 获取4小时K线数据 (缓存中约100根)
+	klines4h, err = WSMonitorCli.GetCurrentKlines(symbol, "4h")
 	if err != nil {
 		return nil, fmt.Errorf("获取4小时K线失败: %v", err)
 	}
@@ -281,6 +281,50 @@ func calculateATR(klines []Kline, period int) float64 {
 	return atr
 }
 
+// calculateATRSeries 计算ATR序列，返回最近10个点的ATR值
+func calculateATRSeries(klines []Kline, period int) []float64 {
+	if len(klines) <= period {
+		return []float64{}
+	}
+
+	// 计算所有True Range
+	trs := make([]float64, len(klines))
+	for i := 1; i < len(klines); i++ {
+		high := klines[i].High
+		low := klines[i].Low
+		prevClose := klines[i-1].Close
+
+		tr1 := high - low
+		tr2 := math.Abs(high - prevClose)
+		tr3 := math.Abs(low - prevClose)
+
+		trs[i] = math.Max(tr1, math.Max(tr2, tr3))
+	}
+
+	// 计算初始ATR (第period个点)
+	sum := 0.0
+	for i := 1; i <= period; i++ {
+		sum += trs[i]
+	}
+	atr := sum / float64(period)
+
+	// 收集所有ATR值
+	allATRs := make([]float64, 0, len(klines)-period)
+	allATRs = append(allATRs, atr)
+
+	// Wilder平滑计算后续ATR
+	for i := period + 1; i < len(klines); i++ {
+		atr = (atr*float64(period-1) + trs[i]) / float64(period)
+		allATRs = append(allATRs, atr)
+	}
+
+	// 返回最近10个点
+	if len(allATRs) > 10 {
+		return allATRs[len(allATRs)-10:]
+	}
+	return allATRs
+}
+
 // calculateIntradaySeries 计算日内系列数据
 func calculateIntradaySeries(klines []Kline) *IntradayData {
 	data := &IntradayData{
@@ -325,8 +369,8 @@ func calculateIntradaySeries(klines []Kline) *IntradayData {
 		}
 	}
 
-	// 计算5m ATR14
-	data.ATR14 = calculateATR(klines, 14)
+	// 计算5m ATR14序列
+	data.ATR14Values = calculateATRSeries(klines, 14)
 
 	return data
 }
@@ -375,8 +419,8 @@ func calculateMidTermSeries15m(klines []Kline) *MidTermData15m {
 		}
 	}
 
-	// 计算15m ATR14
-	data.ATR14 = calculateATR(klines, 14)
+	// 计算15m ATR14序列
+	data.ATR14Values = calculateATRSeries(klines, 14)
 
 	return data
 }
@@ -425,8 +469,8 @@ func calculateMidTermSeries1h(klines []Kline) *MidTermData1h {
 		}
 	}
 
-	// 计算1h ATR14
-	data.ATR14 = calculateATR(klines, 14)
+	// 计算1h ATR14序列
+	data.ATR14Values = calculateATRSeries(klines, 14)
 
 	return data
 }
@@ -444,7 +488,7 @@ func calculateLongerTermData(klines []Kline) *LongerTermData {
 
 	// 计算ATR
 	data.ATR3 = calculateATR(klines, 3)
-	data.ATR14 = calculateATR(klines, 14)
+	data.ATR14Values = calculateATRSeries(klines, 14)
 
 	// 计算成交量
 	if len(klines) > 0 {
@@ -631,7 +675,7 @@ func getDailyData(symbol string) (*DailyData, error) {
 		}
 	}
 
-	data.ATR14 = calculateATR(fullKlines, 14)
+	data.ATR14Values = calculateATRSeries(fullKlines, 14)
 
 	// 计算关键价位 (基于最近7根)
 	data.Recent7High = maxHigh
@@ -717,7 +761,9 @@ func Format(data *Data, skipSymbolMention bool) string {
 			sb.WriteString(fmt.Sprintf("Volume: %s\n\n", formatFloatSlice(data.IntradaySeries.Volume)))
 		}
 
-		sb.WriteString(fmt.Sprintf("5m ATR (14‑period): %.3f\n\n", data.IntradaySeries.ATR14))
+		if len(data.IntradaySeries.ATR14Values) > 0 {
+			sb.WriteString(fmt.Sprintf("ATR (14‑period): %s\n\n", formatFloatSlice(data.IntradaySeries.ATR14Values)))
+		}
 	}
 
 	if data.MidTermSeries15m != nil {
@@ -747,7 +793,9 @@ func Format(data *Data, skipSymbolMention bool) string {
 			sb.WriteString(fmt.Sprintf("Volume: %s\n\n", formatFloatSlice(data.MidTermSeries15m.Volume)))
 		}
 
-		sb.WriteString(fmt.Sprintf("15m ATR (14‑period): %.3f\n\n", data.MidTermSeries15m.ATR14))
+		if len(data.MidTermSeries15m.ATR14Values) > 0 {
+			sb.WriteString(fmt.Sprintf("ATR (14‑period): %s\n\n", formatFloatSlice(data.MidTermSeries15m.ATR14Values)))
+		}
 	}
 
 	if data.MidTermSeries1h != nil {
@@ -777,7 +825,9 @@ func Format(data *Data, skipSymbolMention bool) string {
 			sb.WriteString(fmt.Sprintf("Volume: %s\n\n", formatFloatSlice(data.MidTermSeries1h.Volume)))
 		}
 
-		sb.WriteString(fmt.Sprintf("1h ATR (14‑period): %.3f\n\n", data.MidTermSeries1h.ATR14))
+		if len(data.MidTermSeries1h.ATR14Values) > 0 {
+			sb.WriteString(fmt.Sprintf("ATR (14‑period): %s\n\n", formatFloatSlice(data.MidTermSeries1h.ATR14Values)))
+		}
 	}
 
 	if data.LongerTermContext != nil {
@@ -786,8 +836,11 @@ func Format(data *Data, skipSymbolMention bool) string {
 		sb.WriteString(fmt.Sprintf("20‑Period EMA: %.3f vs. 50‑Period EMA: %.3f\n\n",
 			data.LongerTermContext.EMA20, data.LongerTermContext.EMA50))
 
-		sb.WriteString(fmt.Sprintf("3‑Period ATR: %.3f vs. 14‑Period ATR: %.3f\n\n",
-			data.LongerTermContext.ATR3, data.LongerTermContext.ATR14))
+		sb.WriteString(fmt.Sprintf("3‑Period ATR: %.3f\n\n", data.LongerTermContext.ATR3))
+
+		if len(data.LongerTermContext.ATR14Values) > 0 {
+			sb.WriteString(fmt.Sprintf("ATR (14‑period): %s\n\n", formatFloatSlice(data.LongerTermContext.ATR14Values)))
+		}
 
 		sb.WriteString(fmt.Sprintf("Current Volume: %.3f vs. Average Volume: %.3f\n\n",
 			data.LongerTermContext.CurrentVolume, data.LongerTermContext.AverageVolume))
@@ -818,7 +871,9 @@ func Format(data *Data, skipSymbolMention bool) string {
 				data.DailyContext.EMA50Values[lastIdx]))
 		}
 
-		sb.WriteString(fmt.Sprintf("Daily ATR (14): %.4f\n\n", data.DailyContext.ATR14))
+		if len(data.DailyContext.ATR14Values) > 0 {
+			sb.WriteString(fmt.Sprintf("Daily ATR (14): %s\n\n", formatFloatSlice(data.DailyContext.ATR14Values)))
+		}
 
 		// 最近5天的OHLC
 		sb.WriteString("Recent 5 days OHLC:\n")
