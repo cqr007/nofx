@@ -749,13 +749,24 @@ func (t *FuturesTrader) SetStopLoss(symbol string, positionSide string, quantity
 	// 计算 Stop Limit Price
 	limitPrice := CalculateStopLimitPrice(positionSide, stopPrice, 0)
 
+	// 格式化价格到正确精度（符合 tickSize 要求）
+	limitPriceStr, err := t.FormatPrice(symbol, limitPrice)
+	if err != nil {
+		return fmt.Errorf("格式化限价失败: %w", err)
+	}
+	stopPriceStr, err := t.FormatPrice(symbol, stopPrice)
+	if err != nil {
+		return fmt.Errorf("格式化止损价失败: %w", err)
+	}
+
 	_, err = t.client.NewCreateOrderService().
 		Symbol(symbol).
 		Side(side).
 		PositionSide(posSide).
 		Type(futures.OrderTypeStop).
-		Price(fmt.Sprintf("%.8f", limitPrice)).
-		StopPrice(fmt.Sprintf("%.8f", stopPrice)).
+		TimeInForce(futures.TimeInForceTypeGTC). // STOP/TAKE_PROFIT 必须提供 timeInForce
+		Price(limitPriceStr).
+		StopPrice(stopPriceStr).
 		Quantity(quantityStr).
 		WorkingType(futures.WorkingTypeContractPrice).
 		Do(context.Background())
@@ -764,7 +775,7 @@ func (t *FuturesTrader) SetStopLoss(symbol string, positionSide string, quantity
 		return fmt.Errorf("设置止损失败: %w", err)
 	}
 
-	log.Printf("  止损价设置: %.4f", stopPrice)
+	log.Printf("  止损价设置: %s (限价: %s)", stopPriceStr, limitPriceStr)
 	return nil
 }
 
@@ -790,13 +801,24 @@ func (t *FuturesTrader) SetTakeProfit(symbol string, positionSide string, quanti
 	// 计算 Stop Limit Price (Take Profit 也使用相同的逻辑确保成交)
 	limitPrice := CalculateStopLimitPrice(positionSide, takeProfitPrice, 0)
 
+	// 格式化价格到正确精度（符合 tickSize 要求）
+	limitPriceStr, err := t.FormatPrice(symbol, limitPrice)
+	if err != nil {
+		return fmt.Errorf("格式化限价失败: %w", err)
+	}
+	takeProfitPriceStr, err := t.FormatPrice(symbol, takeProfitPrice)
+	if err != nil {
+		return fmt.Errorf("格式化止盈价失败: %w", err)
+	}
+
 	_, err = t.client.NewCreateOrderService().
 		Symbol(symbol).
 		Side(side).
 		PositionSide(posSide).
 		Type(futures.OrderTypeTakeProfit).
-		Price(fmt.Sprintf("%.8f", limitPrice)).
-		StopPrice(fmt.Sprintf("%.8f", takeProfitPrice)).
+		TimeInForce(futures.TimeInForceTypeGTC). // STOP/TAKE_PROFIT 必须提供 timeInForce
+		Price(limitPriceStr).
+		StopPrice(takeProfitPriceStr).
 		Quantity(quantityStr).
 		WorkingType(futures.WorkingTypeContractPrice).
 		Do(context.Background())
@@ -805,7 +827,7 @@ func (t *FuturesTrader) SetTakeProfit(symbol string, positionSide string, quanti
 		return fmt.Errorf("设置止盈失败: %w", err)
 	}
 
-	log.Printf("  止盈价设置: %.4f", takeProfitPrice)
+	log.Printf("  止盈价设置: %s (限价: %s)", takeProfitPriceStr, limitPriceStr)
 	return nil
 }
 
@@ -858,6 +880,43 @@ func (t *FuturesTrader) GetSymbolPrecision(symbol string) (int, error) {
 
 	log.Printf("  ⚠ %s 未找到精度信息，使用默认精度3", symbol)
 	return 3, nil // 默认精度为3
+}
+
+// GetPricePrecision 获取交易对的价格精度（从 PRICE_FILTER 的 tickSize）
+func (t *FuturesTrader) GetPricePrecision(symbol string) (int, error) {
+	exchangeInfo, err := t.client.NewExchangeInfoService().Do(context.Background())
+	if err != nil {
+		return 0, fmt.Errorf("获取交易规则失败: %w", err)
+	}
+
+	for _, s := range exchangeInfo.Symbols {
+		if s.Symbol == symbol {
+			// 从 PRICE_FILTER 获取价格精度
+			for _, filter := range s.Filters {
+				if filter["filterType"] == "PRICE_FILTER" {
+					tickSize := filter["tickSize"].(string)
+					precision := calculatePrecision(tickSize)
+					log.Printf("  %s 价格精度: %d (tickSize: %s)", symbol, precision, tickSize)
+					return precision, nil
+				}
+			}
+		}
+	}
+
+	log.Printf("  ⚠ %s 未找到价格精度信息，使用默认精度2", symbol)
+	return 2, nil // 默认价格精度为2
+}
+
+// FormatPrice 格式化价格到正确的精度（符合 tickSize 要求）
+func (t *FuturesTrader) FormatPrice(symbol string, price float64) (string, error) {
+	precision, err := t.GetPricePrecision(symbol)
+	if err != nil {
+		// 如果获取失败，使用默认格式
+		return fmt.Sprintf("%.2f", price), nil
+	}
+
+	format := fmt.Sprintf("%%.%df", precision)
+	return fmt.Sprintf(format, price), nil
 }
 
 // calculatePrecision 从stepSize计算精度
