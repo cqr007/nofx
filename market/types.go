@@ -39,7 +39,7 @@ type DailyData struct {
 	MACDValues   []float64 // MACD
 	RSI14Values  []float64 // 14日RSI
 	Volume       []float64 // 成交量
-	ATR14        float64   // 14日ATR
+	ATR14Values  []float64 // 14日ATR序列
 	Recent7High  float64   // 近7日最高
 	Recent7Low   float64   // 近7日最低
 	TrendBias    string    // "bullish" / "bearish" / "neutral"
@@ -47,35 +47,35 @@ type DailyData struct {
 
 // IntradayData 日内数据(5分钟间隔)
 type IntradayData struct {
-	MidPrices   []float64
-	EMA20Values []float64
-	MACDValues  []float64
-	RSI7Values  []float64
-	RSI14Values []float64
-	Volume      []float64
-	ATR14       float64
+	MidPrices    []float64
+	EMA20Values  []float64
+	MACDValues   []float64
+	RSI7Values   []float64
+	RSI14Values  []float64
+	Volume       []float64
+	ATR14Values  []float64
 }
 
 // MidTermData15m 中期数据(15分钟间隔)
 type MidTermData15m struct {
-	MidPrices   []float64
-	EMA20Values []float64
-	MACDValues  []float64
-	RSI7Values  []float64
-	RSI14Values []float64
-	Volume      []float64
-	ATR14       float64
+	MidPrices    []float64
+	EMA20Values  []float64
+	MACDValues   []float64
+	RSI7Values   []float64
+	RSI14Values  []float64
+	Volume       []float64
+	ATR14Values  []float64
 }
 
 // MidTermData1h 中期数据(1小时间隔)
 type MidTermData1h struct {
-	MidPrices   []float64
-	EMA20Values []float64
-	MACDValues  []float64
-	RSI7Values  []float64
-	RSI14Values []float64
-	Volume      []float64
-	ATR14       float64
+	MidPrices    []float64
+	EMA20Values  []float64
+	MACDValues   []float64
+	RSI7Values   []float64
+	RSI14Values  []float64
+	Volume       []float64
+	ATR14Values  []float64
 }
 
 // LongerTermData 长期数据(4小时时间框架)
@@ -83,7 +83,7 @@ type LongerTermData struct {
 	EMA20         float64
 	EMA50         float64
 	ATR3          float64
-	ATR14         float64
+	ATR14Values   []float64
 	CurrentVolume float64
 	AverageVolume float64
 	MACDValues    []float64
