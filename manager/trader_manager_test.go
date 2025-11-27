@@ -247,6 +247,7 @@ func TestAddTraderFromDB_Providers(t *testing.T) {
 	}
 }
 
+
 // createTestConfigs 辅助函数：创建测试所需的配置对象，减少代码重复
 func createTestConfigs(provider, apiKey, customURL, customModel string) (*config.TraderRecord, *config.AIModelConfig, *config.ExchangeConfig) {
 	traderID := "test-trader-" + provider

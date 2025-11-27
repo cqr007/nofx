@@ -242,11 +242,7 @@ export function TraderConfigModal({
         use_coin_pool: formData.use_coin_pool,
         use_oi_top: formData.use_oi_top,
         scan_interval_minutes: formData.scan_interval_minutes,
-      }
-
-      // 只在编辑模式时包含initial_balance（用于手动更新）
-      if (isEditMode && formData.initial_balance !== undefined) {
-        saveData.initial_balance = formData.initial_balance
+        initial_balance: formData.initial_balance, // 创建和编辑都需要传递
       }
 
       await toast.promise(onSave(saveData), {

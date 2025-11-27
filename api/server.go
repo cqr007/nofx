@@ -578,6 +578,12 @@ func (s *Server) handleCreateTrader(c *gin.Context) {
 		return
 	}
 
+	// 校验初始金额（必填）
+	if req.InitialBalance <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "初始金额必须大于0"})
+		return
+	}
+
 	// 校验杠杆值
 	if req.BTCETHLeverage < 0 || req.BTCETHLeverage > 50 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "BTC/ETH杠杆必须在1-50倍之间"})
@@ -762,10 +768,14 @@ func (s *Server) handleCreateTrader(c *gin.Context) {
 	}
 
 	// 立即将新交易员加载到TraderManager中
-	err = s.traderManager.LoadTraderByID(s.database, userID, traderID)
-	if err != nil {
-		log.Printf("⚠️ 加载交易员到内存失败: %v", err)
-		// 这里不返回错误，因为交易员已经成功创建到数据库
+	loadErr := s.traderManager.LoadTraderByID(s.database, userID, traderID)
+	if loadErr != nil {
+		log.Printf("⚠️ 加载交易员到内存失败: %v", loadErr)
+		// 配置已保存但无法加载，返回错误让用户知道
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("交易员已创建，但无法启动: %v", loadErr),
+		})
+		return
 	}
 
 	log.Printf("✓ 创建交易员成功: %s (模型: %s, 交易所: %s)", req.Name, req.AIModelID, req.ExchangeID)
@@ -825,6 +835,16 @@ func (s *Server) handleUpdateTrader(c *gin.Context) {
 		return
 	}
 
+	// 校验初始金额：如果请求中提供了则校验，否则使用原值（原值也必须大于0）
+	initialBalance := req.InitialBalance
+	if initialBalance <= 0 {
+		initialBalance = existingTrader.InitialBalance
+	}
+	if initialBalance <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "初始金额必须大于0"})
+		return
+	}
+
 	// 设置默认值
 	isCrossMargin := existingTrader.IsCrossMargin // 保持原值
 	if req.IsCrossMargin != nil {
@@ -860,7 +880,7 @@ func (s *Server) handleUpdateTrader(c *gin.Context) {
 		Name:                 req.Name,
 		AIModelID:            req.AIModelID,
 		ExchangeID:           req.ExchangeID,
-		InitialBalance:       req.InitialBalance,
+		InitialBalance:       initialBalance,
 		BTCETHLeverage:       btcEthLeverage,
 		AltcoinLeverage:      altcoinLeverage,
 		TradingSymbols:       req.TradingSymbols,
@@ -895,9 +915,14 @@ func (s *Server) handleUpdateTrader(c *gin.Context) {
 	s.traderManager.RemoveTrader(traderID)
 
 	// 重新加载交易员到内存
-	err = s.traderManager.LoadTraderByID(s.database, userID, traderID)
-	if err != nil {
-		log.Printf("⚠️ 重新加载交易员到内存失败: %v", err)
+	loadErr := s.traderManager.LoadTraderByID(s.database, userID, traderID)
+	if loadErr != nil {
+		log.Printf("⚠️ 重新加载交易员到内存失败: %v", loadErr)
+		// 配置已保存但无法加载，返回错误让用户知道
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("配置已保存，但交易员无法启动: %v", loadErr),
+		})
+		return
 	}
 
 	log.Printf("✓ 更新交易员成功: %s (模型: %s, 交易所: %s)", req.Name, req.AIModelID, req.ExchangeID)

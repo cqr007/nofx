@@ -949,10 +949,13 @@ func (tm *TraderManager) LoadTraderByID(database *config.Database, userID, trade
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
-	// 1. 检查是否已加载
-	if _, exists := tm.traders[traderID]; exists {
-		log.Printf("⚠️ 交易员 %s 已经加载，跳过", traderID)
-		return nil
+	// 1. 如果已加载，先停止并移除旧实例，确保使用最新配置
+	if existing, exists := tm.traders[traderID]; exists {
+		if existing.IsRunning() {
+			log.Printf("⚠️ 交易员 %s 正在运行，停止后重新加载", traderID)
+			existing.Stop()
+		}
+		delete(tm.traders, traderID)
 	}
 
 	// 2. 查询交易员配置
