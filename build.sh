@@ -144,9 +144,9 @@ build_frontend() {
     print_info "Installing npm dependencies..."
     npm install
 
-    # Build frontend
-    print_info "Running npm build..."
-    npm run build
+    # Build frontend (debug mode: no minify + sourcemap for easier debugging)
+    print_info "Running npm build (debug mode)..."
+    npx vite build --minify false --sourcemap true
 
     cd "$SCRIPT_DIR"
 
