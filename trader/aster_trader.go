@@ -476,46 +476,41 @@ func (t *AsterTrader) GetBalance() (map[string]interface{}, error) {
 	positions, err := t.GetPositions()
 	if err != nil {
 		log.Printf("⚠️  获取持仓信息失败: %v", err)
-		// fallback: 无法获取持仓时使用简单计算
+		// fallback: 无法获取持仓时使用 API 返回值
+		// 注意：crossWalletBalance = balance + crossUnPnl（已包含未实现盈亏）
+		// 为保证 totalEquity = totalWalletBalance + totalUnrealizedProfit = crossWalletBalance
+		// 需要：totalWalletBalance = crossWalletBalance - crossUnPnl
 		return map[string]interface{}{
-			"totalWalletBalance":    crossWalletBalance,
+			"totalWalletBalance":    crossWalletBalance - crossUnPnl,
 			"availableBalance":      availableBalance,
 			"totalUnrealizedProfit": crossUnPnl,
 		}, nil
 	}
 
-	// ⚠️ 关键修复：从持仓中累加真正的未实现盈亏
-	// Aster 的 crossUnPnl 字段不准确，需要从持仓数据中重新计算
-	totalMarginUsed := 0.0
+	// ⚠️ 关键修复 (Issue #95)：从持仓中累加真正的未实现盈亏
+	// Aster 的 crossUnPnl 字段可能不准确，需要从持仓数据中重新计算
 	realUnrealizedPnl := 0.0
 	for _, pos := range positions {
-		markPrice := pos["markPrice"].(float64)
-		quantity := pos["positionAmt"].(float64)
-		if quantity < 0 {
-			quantity = -quantity
-		}
 		unrealizedPnl := pos["unRealizedProfit"].(float64)
 		realUnrealizedPnl += unrealizedPnl
-
-		leverage := 10
-		if lev, ok := pos["leverage"].(float64); ok {
-			leverage = int(lev)
-		}
-		marginUsed := (quantity * markPrice) / float64(leverage)
-		totalMarginUsed += marginUsed
 	}
 
-	// ✅ Aster 正确计算方式:
-	// 总净值 = 可用余额 + 保证金占用
-	// 钱包余额 = 总净值 - 未实现盈亏
-	// 未实现盈亏 = 从持仓累加计算（不使用API的crossUnPnl）
-	totalEquity := availableBalance + totalMarginUsed
-	totalWalletBalance := totalEquity - realUnrealizedPnl
+	// ✅ Aster 正确计算方式 (Issue #95 修复):
+	// 根据 Binance/Aster API 文档: crossWalletBalance = balance + crossUnPnl
+	// 即 crossWalletBalance 已经包含了未实现盈亏，这就是官网显示的"总净值"
+	//
+	// auto_trader.go 中计算: totalEquity = totalWalletBalance + totalUnrealizedProfit
+	// 为了让 totalEquity == crossWalletBalance（与官网一致），需要：
+	//   totalWalletBalance = crossWalletBalance - realUnrealizedPnl
+	//
+	// 这样: totalEquity = (crossWalletBalance - realUnrealizedPnl) + realUnrealizedPnl
+	//                   = crossWalletBalance（与官网一致）
+	totalWalletBalance := crossWalletBalance - realUnrealizedPnl
 
 	return map[string]interface{}{
-		"totalWalletBalance":    totalWalletBalance, // 钱包余额（不含未实现盈亏）
-		"availableBalance":      availableBalance,   // 可用余额
-		"totalUnrealizedProfit": realUnrealizedPnl,  // 未实现盈亏（从持仓累加）
+		"totalWalletBalance":    totalWalletBalance,  // 钱包余额（不含未实现盈亏）
+		"availableBalance":      availableBalance,    // 可用余额
+		"totalUnrealizedProfit": realUnrealizedPnl,   // 未实现盈亏（从持仓累加）
 	}, nil
 }
 
