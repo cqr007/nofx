@@ -1352,7 +1352,7 @@ sudo apt-get install libta-lib0-dev
 ## 📬 联系方式
 
 ### 🐛 技术支持
-- **GitHub Issues**: [提交Issue](https://github.com/tinkle-community/nofx/issues)
+- **GitHub Issues**: [提交Issue](https://github.com/nofxai/nofx/issues)
 - **开发者社区**: [Telegram群组](https://t.me/nofx_dev_community)
 
 ---
@@ -1375,4 +1375,4 @@ sudo apt-get install libta-lib0-dev
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=tinkle-community/nofx&type=Date)](https://star-history.com/#tinkle-community/nofx&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=nofxai/nofx&type=Date)](https://star-history.com/#nofxai/nofx&Date)

@@ -203,4 +203,4 @@ docker compose up -d
 
 This project is licensed under **AGPL-3.0**. See [LICENSE](LICENSE) for details.
 
-**Original Project:** [NOFX by tinkle-community](https://github.com/tinkle-community/nofx)
+**Original Project:** [NOFX by nofxai](https://github.com/nofxai/nofx)

@@ -397,7 +397,7 @@ export default function HeaderBar({
                   key={item.key}
                   href={
                     item.key === 'GitHub'
-                      ? 'https://github.com/tinkle-community/nofx'
+                      ? 'https://github.com/nofxai/nofx'
                       : item.key === 'community'
                         ? 'https://t.me/nofx_dev_community'
                         : `#${item.key === 'features' ? 'features' : 'how-it-works'}`
@@ -862,7 +862,7 @@ export default function HeaderBar({
                 key={item.key}
                 href={
                   item.key === 'GitHub'
-                    ? 'https://github.com/tinkle-community/nofx'
+                    ? 'https://github.com/nofxai/nofx'
                     : item.key === 'community'
                       ? 'https://t.me/nofx_dev_community'
                       : `#${item.key === 'features' ? 'features' : 'how-it-works'}`

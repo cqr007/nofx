@@ -425,7 +425,7 @@ sudo apt-get install libta-lib0-dev
 ### 2. Клонування проєкту
 
 ```bash
-git clone https://github.com/tinkle-community/nofx.git
+git clone https://github.com/nofxai/nofx.git
 cd nofx
 ```
 
@@ -1246,4 +1246,4 @@ API сервер: http://localhost:8080
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=tinkle-community/nofx&type=Date)](https://star-history.com/#tinkle-community/nofx&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=nofxai/nofx&type=Date)](https://star-history.com/#nofxai/nofx&Date)
