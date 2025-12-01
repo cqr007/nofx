@@ -1,7 +1,6 @@
 package market
 
 import (
-	"math"
 	"testing"
 )
 
@@ -389,19 +388,19 @@ func TestIsStaleData_EmptyKlines(t *testing.T) {
 // TestCalculateIntradaySeries_ER 测试 ER 数据填充
 func TestCalculateIntradaySeries_ER(t *testing.T) {
 	tests := []struct {
-		name         string
-		klineCount   int
-		expectNonZero bool
+		name           string
+		klineCount     int
+		expectNonEmpty bool
 	}{
 		{
-			name:         "足够数据 - 30个K线",
-			klineCount:   30,
-			expectNonZero: true,
+			name:           "足够数据 - 30个K线",
+			klineCount:     30,
+			expectNonEmpty: true,
 		},
 		{
-			name:         "数据不足 - 10个K线",
-			klineCount:   10,
-			expectNonZero: false,
+			name:           "数据不足 - 10个K线",
+			klineCount:     10,
+			expectNonEmpty: false,
 		},
 	}
 
@@ -414,15 +413,20 @@ func TestCalculateIntradaySeries_ER(t *testing.T) {
 				t.Fatal("calculateIntradaySeries returned nil")
 			}
 
-			if tt.expectNonZero {
-				// ER 应该在 0-1 范围内
-				if data.ER10 < 0 || data.ER10 > 1 {
-					t.Errorf("ER10 = %.3f, expected in range [0, 1]", data.ER10)
+			if tt.expectNonEmpty {
+				if len(data.ER10Values) == 0 {
+					t.Error("ER10Values should not be empty")
+				}
+				// ER 值应该在 0-1 范围内
+				for i, v := range data.ER10Values {
+					if v < 0 || v > 1 {
+						t.Errorf("ER10Values[%d] = %.3f, expected in range [0, 1]", i, v)
+					}
 				}
 			} else {
-				// 数据不足时返回 NaN（无效标记）
-				if !math.IsNaN(data.ER10) {
-					t.Errorf("ER10 = %.3f, expected NaN (insufficient data)", data.ER10)
+				// 数据不足时返回空切片
+				if len(data.ER10Values) != 0 {
+					t.Errorf("ER10Values should be empty for insufficient data, got %d", len(data.ER10Values))
 				}
 			}
 		})
@@ -432,19 +436,19 @@ func TestCalculateIntradaySeries_ER(t *testing.T) {
 // TestCalculateIntradaySeries_BollingerBands 测试 Bollinger Bands 数据填充
 func TestCalculateIntradaySeries_BollingerBands(t *testing.T) {
 	tests := []struct {
-		name          string
-		klineCount    int
-		expectNonZero bool
+		name           string
+		klineCount     int
+		expectNonEmpty bool
 	}{
 		{
-			name:          "足够数据 - 30个K线",
-			klineCount:    30,
-			expectNonZero: true,
+			name:           "足够数据 - 30个K线",
+			klineCount:     30,
+			expectNonEmpty: true,
 		},
 		{
-			name:          "数据不足 - 10个K线",
-			klineCount:    10,
-			expectNonZero: false,
+			name:           "数据不足 - 10个K线",
+			klineCount:     10,
+			expectNonEmpty: false,
 		},
 	}
 
@@ -457,20 +461,20 @@ func TestCalculateIntradaySeries_BollingerBands(t *testing.T) {
 				t.Fatal("calculateIntradaySeries returned nil")
 			}
 
-			if tt.expectNonZero {
-				// Bandwidth 应该 > 0（有波动的数据）
-				if data.BollingerBandwidth <= 0 {
-					t.Errorf("BollingerBandwidth = %.3f, expected > 0", data.BollingerBandwidth)
+			if tt.expectNonEmpty {
+				if len(data.BollingerBandwidths) == 0 {
+					t.Error("BollingerBandwidths should not be empty")
 				}
-				// %B 应该在合理范围内
-				if data.BollingerPercentB < -1 || data.BollingerPercentB > 2 {
-					t.Errorf("BollingerPercentB = %.3f, out of reasonable range", data.BollingerPercentB)
+				// Bandwidth 应该 >= 0
+				for i, bw := range data.BollingerBandwidths {
+					if bw < 0 {
+						t.Errorf("BollingerBandwidths[%d] = %.3f, expected >= 0", i, bw)
+					}
 				}
 			} else {
-				// 数据不足时返回 NaN, NaN（无效标记）
-				if !math.IsNaN(data.BollingerBandwidth) || !math.IsNaN(data.BollingerPercentB) {
-					t.Errorf("Bollinger = (%.3f, %.3f), expected (NaN, NaN) for insufficient data",
-						data.BollingerPercentB, data.BollingerBandwidth)
+				// 数据不足时返回空切片
+				if len(data.BollingerBandwidths) != 0 || len(data.BollingerPercentBs) != 0 {
+					t.Errorf("Bollinger slices should be empty for insufficient data")
 				}
 			}
 		})
@@ -486,14 +490,24 @@ func TestCalculateMidTermSeries15m_ERAndBollinger(t *testing.T) {
 		t.Fatal("calculateMidTermSeries15m returned nil")
 	}
 
-	// ER 应该在 0-1 范围内
-	if data.ER10 < 0 || data.ER10 > 1 {
-		t.Errorf("ER10 = %.3f, expected in range [0, 1]", data.ER10)
+	// ER10Values 应该是一个切片，每个值在 0-1 范围内
+	if len(data.ER10Values) == 0 {
+		t.Error("ER10Values is empty")
+	}
+	for i, er := range data.ER10Values {
+		if er < 0 || er > 1 {
+			t.Errorf("ER10Values[%d] = %.3f, expected in range [0, 1]", i, er)
+		}
 	}
 
-	// Bandwidth 应该 > 0
-	if data.BollingerBandwidth <= 0 {
-		t.Errorf("BollingerBandwidth = %.3f, expected > 0", data.BollingerBandwidth)
+	// BollingerBandwidths 应该是一个切片，每个值 > 0
+	if len(data.BollingerBandwidths) == 0 {
+		t.Error("BollingerBandwidths is empty")
+	}
+	for i, bw := range data.BollingerBandwidths {
+		if bw <= 0 {
+			t.Errorf("BollingerBandwidths[%d] = %.3f, expected > 0", i, bw)
+		}
 	}
 }
 
@@ -506,14 +520,24 @@ func TestCalculateMidTermSeries1h_ERAndBollinger(t *testing.T) {
 		t.Fatal("calculateMidTermSeries1h returned nil")
 	}
 
-	// ER 应该在 0-1 范围内
-	if data.ER10 < 0 || data.ER10 > 1 {
-		t.Errorf("ER10 = %.3f, expected in range [0, 1]", data.ER10)
+	// ER10Values 应该是一个切片，每个值在 0-1 范围内
+	if len(data.ER10Values) == 0 {
+		t.Error("ER10Values is empty")
+	}
+	for i, er := range data.ER10Values {
+		if er < 0 || er > 1 {
+			t.Errorf("ER10Values[%d] = %.3f, expected in range [0, 1]", i, er)
+		}
 	}
 
-	// Bandwidth 应该 > 0
-	if data.BollingerBandwidth <= 0 {
-		t.Errorf("BollingerBandwidth = %.3f, expected > 0", data.BollingerBandwidth)
+	// BollingerBandwidths 应该是一个切片，每个值 > 0
+	if len(data.BollingerBandwidths) == 0 {
+		t.Error("BollingerBandwidths is empty")
+	}
+	for i, bw := range data.BollingerBandwidths {
+		if bw <= 0 {
+			t.Errorf("BollingerBandwidths[%d] = %.3f, expected > 0", i, bw)
+		}
 	}
 }
 
@@ -534,26 +558,26 @@ func TestFormat_ContainsERAndBollingerBands(t *testing.T) {
 		FundingRate:   0.0001,
 		IntradaySeries: &IntradayData{
 			SeriesFields: SeriesFields{
-				MidPrices:          []float64{49000, 49500, 50000},
-				ER10:               0.75, // 有效 ER 值
-				BollingerPercentB:  0.6,  // 有效 %B 值
-				BollingerBandwidth: 0.05, // 有效 Bandwidth 值
+				MidPrices:           []float64{49000, 49500, 50000},
+				ER10Values:          []float64{0.70, 0.72, 0.75}, // 有效 ER 序列
+				BollingerPercentBs:  []float64{0.55, 0.58, 0.6},  // 有效 %B 序列
+				BollingerBandwidths: []float64{0.04, 0.045, 0.05}, // 有效 Bandwidth 序列
 			},
 		},
 		MidTermSeries15m: &MidTermData15m{
 			SeriesFields: SeriesFields{
-				MidPrices:          []float64{49000, 49500, 50000},
-				ER10:               0.65,
-				BollingerPercentB:  0.55,
-				BollingerBandwidth: 0.04,
+				MidPrices:           []float64{49000, 49500, 50000},
+				ER10Values:          []float64{0.60, 0.63, 0.65},
+				BollingerPercentBs:  []float64{0.50, 0.52, 0.55},
+				BollingerBandwidths: []float64{0.03, 0.035, 0.04},
 			},
 		},
 		MidTermSeries1h: &MidTermData1h{
 			SeriesFields: SeriesFields{
-				MidPrices:          []float64{49000, 49500, 50000},
-				ER10:               0.55,
-				BollingerPercentB:  0.5,
-				BollingerBandwidth: 0.03,
+				MidPrices:           []float64{49000, 49500, 50000},
+				ER10Values:          []float64{0.50, 0.52, 0.55},
+				BollingerPercentBs:  []float64{0.45, 0.48, 0.5},
+				BollingerBandwidths: []float64{0.02, 0.025, 0.03},
 			},
 		},
 	}
@@ -592,24 +616,24 @@ func TestFormat_SkipsNaNValues(t *testing.T) {
 		FundingRate:   0.0001,
 		IntradaySeries: &IntradayData{
 			SeriesFields: SeriesFields{
-				MidPrices:          []float64{49000, 49500, 50000},
-				ER10:               math.NaN(), // 无效值
-				BollingerPercentB:  math.NaN(), // 无效值
-				BollingerBandwidth: math.NaN(), // 无效值
+				MidPrices:           []float64{49000, 49500, 50000},
+				ER10Values:          []float64{}, // 空切片，不应输出
+				BollingerPercentBs:  []float64{}, // 空切片，不应输出
+				BollingerBandwidths: []float64{}, // 空切片，不应输出
 			},
 		},
 	}
 
 	output := Format(data, false)
 
-	// 验证 NaN 值不会导致输出 "NaN" 字符串
+	// 验证空切片不会导致输出问题
 	if containsSubstr(output, "NaN") {
 		t.Errorf("Format() output should not contain 'NaN' string\nOutput:\n%s", output)
 	}
 
-	// 当 ER 为 NaN 时，不应该输出 Efficiency Ratio 行
+	// 当 ER 为空时，不应该输出 Efficiency Ratio 行
 	if containsSubstr(output, "Efficiency Ratio") {
-		t.Errorf("Format() should skip Efficiency Ratio when ER is NaN\nOutput:\n%s", output)
+		t.Errorf("Format() should skip Efficiency Ratio when ER10Values is empty\nOutput:\n%s", output)
 	}
 }
 
@@ -640,44 +664,44 @@ func TestFormat_SeriesOutputStructure(t *testing.T) {
 		FundingRate:   0.0001,
 		IntradaySeries: &IntradayData{
 			SeriesFields: SeriesFields{
-				MidPrices:          []float64{49000, 49500, 50000},
-				EMA20Values:        []float64{48900, 49400, 49900},
-				MACDValues:         []float64{50, 75, 100},
-				RSI7Values:         []float64{45, 50, 55},
-				RSI14Values:        []float64{48, 52, 54},
-				Volume:             []float64{1000, 1100, 1200},
-				ATR14Values:        []float64{200, 210, 220},
-				ER10:               0.75,
-				BollingerPercentB:  0.6,
-				BollingerBandwidth: 0.05,
+				MidPrices:           []float64{49000, 49500, 50000},
+				EMA20Values:         []float64{48900, 49400, 49900},
+				MACDValues:          []float64{50, 75, 100},
+				RSI7Values:          []float64{45, 50, 55},
+				RSI14Values:         []float64{48, 52, 54},
+				Volume:              []float64{1000, 1100, 1200},
+				ATR14Values:         []float64{200, 210, 220},
+				ER10Values:          []float64{0.70, 0.72, 0.75},
+				BollingerPercentBs:  []float64{0.55, 0.58, 0.6},
+				BollingerBandwidths: []float64{0.04, 0.045, 0.05},
 			},
 		},
 		MidTermSeries15m: &MidTermData15m{
 			SeriesFields: SeriesFields{
-				MidPrices:          []float64{48500, 49000, 49500},
-				EMA20Values:        []float64{48400, 48900, 49400},
-				MACDValues:         []float64{40, 60, 80},
-				RSI7Values:         []float64{42, 48, 52},
-				RSI14Values:        []float64{44, 50, 53},
-				Volume:             []float64{5000, 5500, 6000},
-				ATR14Values:        []float64{300, 310, 320},
-				ER10:               0.65,
-				BollingerPercentB:  0.55,
-				BollingerBandwidth: 0.04,
+				MidPrices:           []float64{48500, 49000, 49500},
+				EMA20Values:         []float64{48400, 48900, 49400},
+				MACDValues:          []float64{40, 60, 80},
+				RSI7Values:          []float64{42, 48, 52},
+				RSI14Values:         []float64{44, 50, 53},
+				Volume:              []float64{5000, 5500, 6000},
+				ATR14Values:         []float64{300, 310, 320},
+				ER10Values:          []float64{0.60, 0.63, 0.65},
+				BollingerPercentBs:  []float64{0.50, 0.52, 0.55},
+				BollingerBandwidths: []float64{0.03, 0.035, 0.04},
 			},
 		},
 		MidTermSeries1h: &MidTermData1h{
 			SeriesFields: SeriesFields{
-				MidPrices:          []float64{48000, 48500, 49000},
-				EMA20Values:        []float64{47900, 48400, 48900},
-				MACDValues:         []float64{30, 50, 70},
-				RSI7Values:         []float64{40, 45, 50},
-				RSI14Values:        []float64{42, 48, 51},
-				Volume:             []float64{20000, 22000, 24000},
-				ATR14Values:        []float64{400, 420, 440},
-				ER10:               0.55,
-				BollingerPercentB:  0.5,
-				BollingerBandwidth: 0.03,
+				MidPrices:           []float64{48000, 48500, 49000},
+				EMA20Values:         []float64{47900, 48400, 48900},
+				MACDValues:          []float64{30, 50, 70},
+				RSI7Values:          []float64{40, 45, 50},
+				RSI14Values:         []float64{42, 48, 51},
+				Volume:              []float64{20000, 22000, 24000},
+				ATR14Values:         []float64{400, 420, 440},
+				ER10Values:          []float64{0.50, 0.52, 0.55},
+				BollingerPercentBs:  []float64{0.45, 0.48, 0.5},
+				BollingerBandwidths: []float64{0.02, 0.025, 0.03},
 			},
 		},
 	}

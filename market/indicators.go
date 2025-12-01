@@ -208,6 +208,46 @@ func calculateEfficiencyRatio(klines []Kline, period int) float64 {
 	return er
 }
 
+// calculateERSeries 计算 ER 序列，返回最近 10 个点的 ER 值
+func calculateERSeries(klines []Kline, period int) []float64 {
+	if len(klines) <= period {
+		return []float64{}
+	}
+
+	// 计算所有可能的 ER 值
+	allERs := make([]float64, 0, len(klines)-period)
+
+	for endIdx := period; endIdx < len(klines); endIdx++ {
+		startIdx := endIdx - period
+
+		// 计算 Direction (净变动)
+		direction := math.Abs(klines[endIdx].Close - klines[startIdx].Close)
+
+		// 计算 Volatility (每日变动之和)
+		volatility := 0.0
+		for i := startIdx + 1; i <= endIdx; i++ {
+			volatility += math.Abs(klines[i].Close - klines[i-1].Close)
+		}
+
+		var er float64
+		if volatility == 0 {
+			er = 0
+		} else {
+			er = direction / volatility
+			if er > 1 {
+				er = 1
+			}
+		}
+		allERs = append(allERs, er)
+	}
+
+	// 返回最近 10 个点
+	if len(allERs) > 10 {
+		return allERs[len(allERs)-10:]
+	}
+	return allERs
+}
+
 // =============================================================================
 // Bollinger Bands 布林带
 // =============================================================================
@@ -265,4 +305,66 @@ func calculateBollingerBands(klines []Kline, period int, stdDevMultiplier float6
 	bandwidth = bandWidth / middle
 
 	return
+}
+
+// calculateBollingerSeries 计算 Bollinger Bands 序列，返回最近 10 个点的 %B 和 Bandwidth 值
+func calculateBollingerSeries(klines []Kline, period int, stdDevMultiplier float64) (percentBs, bandwidths []float64) {
+	if len(klines) < period {
+		return []float64{}, []float64{}
+	}
+
+	// 计算所有可能的 Bollinger 值
+	allPercentBs := make([]float64, 0, len(klines)-period+1)
+	allBandwidths := make([]float64, 0, len(klines)-period+1)
+
+	for endIdx := period; endIdx <= len(klines); endIdx++ {
+		// 取 [endIdx-period, endIdx) 范围的收盘价
+		startIdx := endIdx - period
+		closes := make([]float64, period)
+		for i := 0; i < period; i++ {
+			closes[i] = klines[startIdx+i].Close
+		}
+
+		// 计算 SMA (中轨)
+		sum := 0.0
+		for _, c := range closes {
+			sum += c
+		}
+		middle := sum / float64(period)
+
+		// 计算标准差
+		variance := 0.0
+		for _, c := range closes {
+			diff := c - middle
+			variance += diff * diff
+		}
+		stdDev := math.Sqrt(variance / float64(period))
+
+		// 计算上下轨
+		upper := middle + stdDevMultiplier*stdDev
+		lower := middle - stdDevMultiplier*stdDev
+
+		// 当前价格（窗口最后一个）
+		currentPrice := klines[endIdx-1].Close
+
+		// 计算 %B 和 Bandwidth
+		bandWidth := upper - lower
+		var percentB, bw float64
+		if bandWidth == 0 {
+			percentB = 0.5
+			bw = 0
+		} else {
+			percentB = (currentPrice - lower) / bandWidth
+			bw = bandWidth / middle
+		}
+
+		allPercentBs = append(allPercentBs, percentB)
+		allBandwidths = append(allBandwidths, bw)
+	}
+
+	// 返回最近 10 个点
+	if len(allPercentBs) > 10 {
+		return allPercentBs[len(allPercentBs)-10:], allBandwidths[len(allBandwidths)-10:]
+	}
+	return allPercentBs, allBandwidths
 }

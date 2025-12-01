@@ -29,37 +29,37 @@ type OIData struct {
 
 // DailyData 日线数据(7天)
 type DailyData struct {
-	Dates                    []string  // 日期 YYYY-MM-DD
-	OpenPrices               []float64 // 开盘价
-	HighPrices               []float64 // 最高价
-	LowPrices                []float64 // 最低价
-	ClosePrices              []float64 // 收盘价
-	EMA20Values              []float64 // 20日均线
-	EMA50Values              []float64 // 50日均线
-	MACDValues               []float64 // MACD
-	RSI14Values              []float64 // 14日RSI
-	Volume                   []float64 // 成交量
-	ATR14Values              []float64 // 14日ATR序列
-	ER10                     float64   // Efficiency Ratio (10期)
-	BollingerPercentB        float64   // 布林带 %B
-	BollingerBandwidth       float64   // 布林带宽度
-	Recent7High              float64   // 近7日最高
-	Recent7Low               float64   // 近7日最低
-	TrendBias                string    // "bullish" / "bearish" / "neutral"
+	Dates               []string  // 日期 YYYY-MM-DD
+	OpenPrices          []float64 // 开盘价
+	HighPrices          []float64 // 最高价
+	LowPrices           []float64 // 最低价
+	ClosePrices         []float64 // 收盘价
+	EMA20Values         []float64 // 20日均线
+	EMA50Values         []float64 // 50日均线
+	MACDValues          []float64 // MACD
+	RSI14Values         []float64 // 14日RSI
+	Volume              []float64 // 成交量
+	ATR14Values         []float64 // 14日ATR序列
+	ER10Values          []float64 // Efficiency Ratio (10期) 序列
+	BollingerPercentBs  []float64 // 布林带 %B 序列
+	BollingerBandwidths []float64 // 布林带宽度序列
+	Recent7High         float64   // 近7日最高
+	Recent7Low          float64   // 近7日最低
+	TrendBias           string    // "bullish" / "bearish" / "neutral"
 }
 
 // SeriesFields 通用时序数据字段（嵌入到各时间周期结构体中）
 type SeriesFields struct {
-	MidPrices          []float64
-	EMA20Values        []float64
-	MACDValues         []float64
-	RSI7Values         []float64
-	RSI14Values        []float64
-	Volume             []float64
-	ATR14Values        []float64
-	ER10               float64 // Efficiency Ratio (10期)
-	BollingerPercentB  float64 // 布林带 %B
-	BollingerBandwidth float64 // 布林带宽度
+	MidPrices           []float64
+	EMA20Values         []float64
+	MACDValues          []float64
+	RSI7Values          []float64
+	RSI14Values         []float64
+	Volume              []float64
+	ATR14Values         []float64
+	ER10Values          []float64 // Efficiency Ratio (10期) 序列
+	BollingerPercentBs  []float64 // 布林带 %B 序列
+	BollingerBandwidths []float64 // 布林带宽度序列
 }
 
 // IntradayData 日内数据(5分钟间隔)
@@ -79,17 +79,17 @@ type MidTermData1h struct {
 
 // LongerTermData 长期数据(4小时时间框架)
 type LongerTermData struct {
-	EMA20              float64
-	EMA50              float64
-	ATR3               float64
-	ATR14Values        []float64
-	CurrentVolume      float64
-	AverageVolume      float64
-	MACDValues         []float64
-	RSI14Values        []float64
-	ER10               float64 // Efficiency Ratio (10期)
-	BollingerPercentB  float64 // 布林带 %B
-	BollingerBandwidth float64 // 布林带宽度
+	EMA20               float64
+	EMA50               float64
+	ATR3                float64
+	ATR14Values         []float64
+	CurrentVolume       float64
+	AverageVolume       float64
+	MACDValues          []float64
+	RSI14Values         []float64
+	ER10Values          []float64 // Efficiency Ratio (10期) 序列
+	BollingerPercentBs  []float64 // 布林带 %B 序列
+	BollingerBandwidths []float64 // 布林带宽度序列
 }
 
 // Binance API 响应结构

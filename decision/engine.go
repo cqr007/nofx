@@ -394,16 +394,15 @@ func buildSystemPrompt(accountEquity float64, btcEthLeverage, altcoinLeverage in
 
 	// 2. 硬约束（风险控制）- 动态生成
 	sb.WriteString("# 硬约束（风险控制）\n\n")
-	sb.WriteString("1. 风险回报比: 必须 ≥ 1:3（冒1%风险，赚3%+收益）\n")
-	sb.WriteString("2. 最多持仓: 3个币种（质量>数量）\n")
-	sb.WriteString(fmt.Sprintf("3. ⚠️ **单币仓位上限（严格执行）**: 山寨%.0f U | BTC/ETH %.0f U\n",
+	sb.WriteString("1. 最多持仓: 3个币种（质量>数量）\n")
+	sb.WriteString(fmt.Sprintf("2. ⚠️ **单币仓位上限（严格执行）**: 山寨%.0f U | BTC/ETH %.0f U\n",
 		accountEquity*1.5, accountEquity*10))
 	sb.WriteString("   - **超出此限制的决策将被系统拒绝**\n")
 	sb.WriteString("   - 基于净值的仓位上限，实际开仓还需考虑可用余额\n")
-	sb.WriteString(fmt.Sprintf("4. 杠杆限制: **山寨币最大%dx杠杆** | **BTC/ETH最大%dx杠杆** (⚠️ 超限将被拒绝)\n", altcoinLeverage, btcEthLeverage))
-	sb.WriteString("5. 保证金: 总使用率 ≤ 90%\n")
-	sb.WriteString(fmt.Sprintf("6. 开仓金额: **必须 ≥%.0f USDT**（交易所要求）\n", minPositionSize))
-	sb.WriteString("7. ⚠️ **开仓保证金检查**: 开仓前必须确保 `所需保证金 ≤ 可用余额`，所需保证金 = position_size_usd / leverage + 手续费\n\n")
+	sb.WriteString(fmt.Sprintf("3. 杠杆限制: **山寨币最大%dx杠杆** | **BTC/ETH最大%dx杠杆** (⚠️ 超限将被拒绝)\n", altcoinLeverage, btcEthLeverage))
+	sb.WriteString("4. 保证金: 总使用率 ≤ 90%\n")
+	sb.WriteString(fmt.Sprintf("5. 开仓金额: **必须 ≥%.0f USDT**（交易所要求）\n", minPositionSize))
+	sb.WriteString("6. ⚠️ **开仓保证金检查**: 开仓前必须确保 `所需保证金 ≤ 可用余额`，所需保证金 = position_size_usd / leverage + 手续费\n\n")
 
 	// 3. 输出格式 - 动态生成
 	sb.WriteString("# 输出格式 (严格遵守)\n\n")
@@ -916,38 +915,6 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 			if d.StopLoss <= d.TakeProfit {
 				return fmt.Errorf("做空时止损价必须大于止盈价")
 			}
-		}
-
-		// 验证风险回报比（必须≥1:3）
-		// 计算入场价（假设当前市价）
-		var entryPrice float64
-		if d.Action == "open_long" {
-			// 做多：入场价在止损和止盈之间
-			entryPrice = d.StopLoss + (d.TakeProfit-d.StopLoss)*0.2 // 假设在20%位置入场
-		} else {
-			// 做空：入场价在止损和止盈之间
-			entryPrice = d.StopLoss - (d.StopLoss-d.TakeProfit)*0.2 // 假设在20%位置入场
-		}
-
-		var riskPercent, rewardPercent, riskRewardRatio float64
-		if d.Action == "open_long" {
-			riskPercent = (entryPrice - d.StopLoss) / entryPrice * 100
-			rewardPercent = (d.TakeProfit - entryPrice) / entryPrice * 100
-			if riskPercent > 0 {
-				riskRewardRatio = rewardPercent / riskPercent
-			}
-		} else {
-			riskPercent = (d.StopLoss - entryPrice) / entryPrice * 100
-			rewardPercent = (entryPrice - d.TakeProfit) / entryPrice * 100
-			if riskPercent > 0 {
-				riskRewardRatio = rewardPercent / riskPercent
-			}
-		}
-
-		// 硬约束：风险回报比必须≥3.0
-		if riskRewardRatio < 3.0 {
-			return fmt.Errorf("风险回报比过低(%.2f:1)，必须≥3.0:1 [风险:%.2f%% 收益:%.2f%%] [止损:%.2f 止盈:%.2f]",
-				riskRewardRatio, riskPercent, rewardPercent, d.StopLoss, d.TakeProfit)
 		}
 	}
 

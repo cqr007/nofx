@@ -173,16 +173,16 @@ func Get(symbol string) (*Data, error) {
 
 // seriesResult 内部计算结果，用于填充各周期数据结构
 type seriesResult struct {
-	midPrices          []float64
-	ema20Values        []float64
-	macdValues         []float64
-	rsi7Values         []float64
-	rsi14Values        []float64
-	volume             []float64
-	atr14Values        []float64
-	er10               float64
-	bollingerPercentB  float64
-	bollingerBandwidth float64
+	midPrices           []float64
+	ema20Values         []float64
+	macdValues          []float64
+	rsi7Values          []float64
+	rsi14Values         []float64
+	volume              []float64
+	atr14Values         []float64
+	er10Values          []float64
+	bollingerPercentBs  []float64
+	bollingerBandwidths []float64
 }
 
 // calculateSeriesData 计算时间序列指标（5m/15m/1h 通用）
@@ -232,11 +232,11 @@ func calculateSeriesData(klines []Kline) *seriesResult {
 	// 计算 ATR14 序列
 	r.atr14Values = calculateATRSeries(klines, 14)
 
-	// 计算 Efficiency Ratio (10期)
-	r.er10 = calculateEfficiencyRatio(klines, 10)
+	// 计算 Efficiency Ratio (10期) 序列
+	r.er10Values = calculateERSeries(klines, 10)
 
-	// 计算 Bollinger Bands (20期, 2倍标准差)
-	r.bollingerPercentB, r.bollingerBandwidth = calculateBollingerBands(klines, 20, 2.0)
+	// 计算 Bollinger Bands (20期, 2倍标准差) 序列
+	r.bollingerPercentBs, r.bollingerBandwidths = calculateBollingerSeries(klines, 20, 2.0)
 
 	return r
 }
@@ -246,16 +246,16 @@ func calculateIntradaySeries(klines []Kline) *IntradayData {
 	r := calculateSeriesData(klines)
 	return &IntradayData{
 		SeriesFields: SeriesFields{
-			MidPrices:          r.midPrices,
-			EMA20Values:        r.ema20Values,
-			MACDValues:         r.macdValues,
-			RSI7Values:         r.rsi7Values,
-			RSI14Values:        r.rsi14Values,
-			Volume:             r.volume,
-			ATR14Values:        r.atr14Values,
-			ER10:               r.er10,
-			BollingerPercentB:  r.bollingerPercentB,
-			BollingerBandwidth: r.bollingerBandwidth,
+			MidPrices:           r.midPrices,
+			EMA20Values:         r.ema20Values,
+			MACDValues:          r.macdValues,
+			RSI7Values:          r.rsi7Values,
+			RSI14Values:         r.rsi14Values,
+			Volume:              r.volume,
+			ATR14Values:         r.atr14Values,
+			ER10Values:          r.er10Values,
+			BollingerPercentBs:  r.bollingerPercentBs,
+			BollingerBandwidths: r.bollingerBandwidths,
 		},
 	}
 }
@@ -265,16 +265,16 @@ func calculateMidTermSeries15m(klines []Kline) *MidTermData15m {
 	r := calculateSeriesData(klines)
 	return &MidTermData15m{
 		SeriesFields: SeriesFields{
-			MidPrices:          r.midPrices,
-			EMA20Values:        r.ema20Values,
-			MACDValues:         r.macdValues,
-			RSI7Values:         r.rsi7Values,
-			RSI14Values:        r.rsi14Values,
-			Volume:             r.volume,
-			ATR14Values:        r.atr14Values,
-			ER10:               r.er10,
-			BollingerPercentB:  r.bollingerPercentB,
-			BollingerBandwidth: r.bollingerBandwidth,
+			MidPrices:           r.midPrices,
+			EMA20Values:         r.ema20Values,
+			MACDValues:          r.macdValues,
+			RSI7Values:          r.rsi7Values,
+			RSI14Values:         r.rsi14Values,
+			Volume:              r.volume,
+			ATR14Values:         r.atr14Values,
+			ER10Values:          r.er10Values,
+			BollingerPercentBs:  r.bollingerPercentBs,
+			BollingerBandwidths: r.bollingerBandwidths,
 		},
 	}
 }
@@ -284,16 +284,16 @@ func calculateMidTermSeries1h(klines []Kline) *MidTermData1h {
 	r := calculateSeriesData(klines)
 	return &MidTermData1h{
 		SeriesFields: SeriesFields{
-			MidPrices:          r.midPrices,
-			EMA20Values:        r.ema20Values,
-			MACDValues:         r.macdValues,
-			RSI7Values:         r.rsi7Values,
-			RSI14Values:        r.rsi14Values,
-			Volume:             r.volume,
-			ATR14Values:        r.atr14Values,
-			ER10:               r.er10,
-			BollingerPercentB:  r.bollingerPercentB,
-			BollingerBandwidth: r.bollingerBandwidth,
+			MidPrices:           r.midPrices,
+			EMA20Values:         r.ema20Values,
+			MACDValues:          r.macdValues,
+			RSI7Values:          r.rsi7Values,
+			RSI14Values:         r.rsi14Values,
+			Volume:              r.volume,
+			ATR14Values:         r.atr14Values,
+			ER10Values:          r.er10Values,
+			BollingerPercentBs:  r.bollingerPercentBs,
+			BollingerBandwidths: r.bollingerBandwidths,
 		},
 	}
 }
@@ -341,11 +341,11 @@ func calculateLongerTermData(klines []Kline) *LongerTermData {
 		}
 	}
 
-	// 计算 Efficiency Ratio (10期)
-	data.ER10 = calculateEfficiencyRatio(klines, 10)
+	// 计算 Efficiency Ratio (10期) 序列
+	data.ER10Values = calculateERSeries(klines, 10)
 
-	// 计算 Bollinger Bands (20期, 2倍标准差)
-	data.BollingerPercentB, data.BollingerBandwidth = calculateBollingerBands(klines, 20, 2.0)
+	// 计算 Bollinger Bands (20期, 2倍标准差) 序列
+	data.BollingerPercentBs, data.BollingerBandwidths = calculateBollingerSeries(klines, 20, 2.0)
 
 	return data
 }
@@ -506,11 +506,11 @@ func getDailyData(symbol string) (*DailyData, error) {
 
 	data.ATR14Values = calculateATRSeries(fullKlines, 14)
 
-	// 计算 Efficiency Ratio (10期)
-	data.ER10 = calculateEfficiencyRatio(fullKlines, 10)
+	// 计算 Efficiency Ratio (10期) 序列
+	data.ER10Values = calculateERSeries(fullKlines, 10)
 
-	// 计算 Bollinger Bands (20期, 2倍标准差)
-	data.BollingerPercentB, data.BollingerBandwidth = calculateBollingerBands(fullKlines, 20, 2.0)
+	// 计算 Bollinger Bands (20期, 2倍标准差) 序列
+	data.BollingerPercentBs, data.BollingerBandwidths = calculateBollingerSeries(fullKlines, 20, 2.0)
 
 	// 计算关键价位 (基于最近7根)
 	data.Recent7High = maxHigh
@@ -604,7 +604,17 @@ func Format(data *Data, skipSymbolMention bool) string {
 			sb.WriteString(fmt.Sprintf("RSI indicators (14‑Period): %s\n\n", formatFloatSlice(data.LongerTermContext.RSI14Values)))
 		}
 
-		formatERAndBollinger(&sb, data.LongerTermContext.ER10, data.LongerTermContext.BollingerPercentB, data.LongerTermContext.BollingerBandwidth)
+		if len(data.LongerTermContext.ER10Values) > 0 {
+			sb.WriteString(fmt.Sprintf("Efficiency Ratio (10‑period): %s\n\n", formatFloatSlice(data.LongerTermContext.ER10Values)))
+		}
+
+		if len(data.LongerTermContext.BollingerPercentBs) > 0 {
+			sb.WriteString(fmt.Sprintf("Bollinger %%B: %s\n\n", formatFloatSlice(data.LongerTermContext.BollingerPercentBs)))
+		}
+
+		if len(data.LongerTermContext.BollingerBandwidths) > 0 {
+			sb.WriteString(fmt.Sprintf("Bollinger Bandwidth: %s\n\n", formatFloatSlice(data.LongerTermContext.BollingerBandwidths)))
+		}
 	}
 
 	if data.DailyContext != nil {
@@ -663,7 +673,17 @@ func Format(data *Data, skipSymbolMention bool) string {
 				formatFloatSlice(data.DailyContext.RSI14Values[startRSI:])))
 		}
 
-		formatERAndBollinger(&sb, data.DailyContext.ER10, data.DailyContext.BollingerPercentB, data.DailyContext.BollingerBandwidth)
+		if len(data.DailyContext.ER10Values) > 0 {
+			sb.WriteString(fmt.Sprintf("\nDaily ER (10‑period): %s\n", formatFloatSlice(data.DailyContext.ER10Values)))
+		}
+
+		if len(data.DailyContext.BollingerPercentBs) > 0 {
+			sb.WriteString(fmt.Sprintf("Daily Bollinger %%B: %s\n", formatFloatSlice(data.DailyContext.BollingerPercentBs)))
+		}
+
+		if len(data.DailyContext.BollingerBandwidths) > 0 {
+			sb.WriteString(fmt.Sprintf("Daily Bollinger Bandwidth: %s\n", formatFloatSlice(data.DailyContext.BollingerBandwidths)))
+		}
 	}
 
 	return sb.String()
@@ -700,16 +720,6 @@ func formatPriceWithDynamicPrecision(price float64) string {
 	}
 }
 
-// formatERAndBollinger 格式化 ER 和 Bollinger Bands 输出（跳过 NaN 值）
-func formatERAndBollinger(sb *strings.Builder, er10, percentB, bandwidth float64) {
-	if !math.IsNaN(er10) {
-		sb.WriteString(fmt.Sprintf("Efficiency Ratio (10‑period): %.4f\n\n", er10))
-	}
-	if !math.IsNaN(percentB) && !math.IsNaN(bandwidth) {
-		sb.WriteString(fmt.Sprintf("Bollinger %%B: %.4f, Bandwidth: %.4f\n\n", percentB, bandwidth))
-	}
-}
-
 // formatSeriesData 通用时序数据格式化函数
 func formatSeriesData(sb *strings.Builder, title string, data *SeriesFields) {
 	sb.WriteString(title + "\n\n")
@@ -742,7 +752,17 @@ func formatSeriesData(sb *strings.Builder, title string, data *SeriesFields) {
 		sb.WriteString(fmt.Sprintf("ATR (14‑period): %s\n\n", formatFloatSlice(data.ATR14Values)))
 	}
 
-	formatERAndBollinger(sb, data.ER10, data.BollingerPercentB, data.BollingerBandwidth)
+	if len(data.ER10Values) > 0 {
+		sb.WriteString(fmt.Sprintf("Efficiency Ratio (10‑period): %s\n\n", formatFloatSlice(data.ER10Values)))
+	}
+
+	if len(data.BollingerPercentBs) > 0 {
+		sb.WriteString(fmt.Sprintf("Bollinger %%B: %s\n\n", formatFloatSlice(data.BollingerPercentBs)))
+	}
+
+	if len(data.BollingerBandwidths) > 0 {
+		sb.WriteString(fmt.Sprintf("Bollinger Bandwidth: %s\n\n", formatFloatSlice(data.BollingerBandwidths)))
+	}
 }
 
 // formatFloatSlice 格式化float64切片为字符串（使用动态精度）

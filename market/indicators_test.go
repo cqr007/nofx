@@ -632,3 +632,210 @@ func TestCalculateBollingerBands_PercentBRange(t *testing.T) {
 		t.Errorf("PercentB = %.3f seems out of reasonable range", percentB)
 	}
 }
+
+// =============================================================================
+// ER Series 测试
+// =============================================================================
+
+// TestCalculateERSeries 测试 ER 序列计算
+func TestCalculateERSeries(t *testing.T) {
+	tests := []struct {
+		name           string
+		klineCount     int
+		period         int
+		expectedLen    int
+		expectNonEmpty bool
+	}{
+		{
+			name:           "足够数据 - 100根K线, period=10",
+			klineCount:     100,
+			period:         10,
+			expectedLen:    10, // 最多返回10个点
+			expectNonEmpty: true,
+		},
+		{
+			name:           "刚好足够 - 20根K线 (10+10), period=10",
+			klineCount:     20,
+			period:         10,
+			expectedLen:    10,
+			expectNonEmpty: true,
+		},
+		{
+			name:           "部分数据 - 15根K线, period=10",
+			klineCount:     15,
+			period:         10,
+			expectedLen:    5, // 15 - 10 = 5个点
+			expectNonEmpty: true,
+		},
+		{
+			name:           "最少数据 - 11根K线, period=10",
+			klineCount:     11,
+			period:         10,
+			expectedLen:    1, // 只有1个ER值
+			expectNonEmpty: true,
+		},
+		{
+			name:           "数据不足 - 10根K线, period=10",
+			klineCount:     10,
+			period:         10,
+			expectedLen:    0,
+			expectNonEmpty: false,
+		},
+		{
+			name:           "空数据",
+			klineCount:     0,
+			period:         10,
+			expectedLen:    0,
+			expectNonEmpty: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			klines := generateTestKlines(tt.klineCount)
+			erValues := calculateERSeries(klines, tt.period)
+
+			if len(erValues) != tt.expectedLen {
+				t.Errorf("calculateERSeries() length = %d, want %d", len(erValues), tt.expectedLen)
+			}
+
+			if tt.expectNonEmpty {
+				for i, v := range erValues {
+					// ER 应该在 0-1 范围内
+					if v < 0 || v > 1 {
+						t.Errorf("ER[%d] = %.3f, expected in range [0, 1]", i, v)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestCalculateERSeries_ValuesConsistency 测试 ER 序列值与单值计算的一致性
+func TestCalculateERSeries_ValuesConsistency(t *testing.T) {
+	klines := generateTestKlines(30)
+
+	// 序列最后一个值应该等于单值计算的结果
+	erSeries := calculateERSeries(klines, 10)
+	erSingle := calculateEfficiencyRatio(klines, 10)
+
+	if len(erSeries) == 0 {
+		t.Fatal("ER series should not be empty")
+	}
+
+	lastValue := erSeries[len(erSeries)-1]
+	tolerance := 0.0001
+
+	if math.Abs(lastValue-erSingle) > tolerance {
+		t.Errorf("Last ER series value (%.6f) should equal single ER (%.6f)",
+			lastValue, erSingle)
+	}
+}
+
+// =============================================================================
+// Bollinger Bands Series 测试
+// =============================================================================
+
+// TestCalculateBollingerSeries 测试 Bollinger Bands 序列计算
+func TestCalculateBollingerSeries(t *testing.T) {
+	tests := []struct {
+		name           string
+		klineCount     int
+		period         int
+		expectedLen    int
+		expectNonEmpty bool
+	}{
+		{
+			name:           "足够数据 - 100根K线, period=20",
+			klineCount:     100,
+			period:         20,
+			expectedLen:    10, // 最多返回10个点
+			expectNonEmpty: true,
+		},
+		{
+			name:           "刚好足够 - 30根K线 (20+10), period=20",
+			klineCount:     30,
+			period:         20,
+			expectedLen:    10,
+			expectNonEmpty: true,
+		},
+		{
+			name:           "部分数据 - 25根K线, period=20",
+			klineCount:     25,
+			period:         20,
+			expectedLen:    6, // 25 - 20 + 1 = 6个点
+			expectNonEmpty: true,
+		},
+		{
+			name:           "最少数据 - 20根K线, period=20",
+			klineCount:     20,
+			period:         20,
+			expectedLen:    1, // 只有1个值
+			expectNonEmpty: true,
+		},
+		{
+			name:           "数据不足 - 19根K线, period=20",
+			klineCount:     19,
+			period:         20,
+			expectedLen:    0,
+			expectNonEmpty: false,
+		},
+		{
+			name:           "空数据",
+			klineCount:     0,
+			period:         20,
+			expectedLen:    0,
+			expectNonEmpty: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			klines := generateTestKlines(tt.klineCount)
+			percentBValues, bandwidthValues := calculateBollingerSeries(klines, tt.period, 2.0)
+
+			if len(percentBValues) != tt.expectedLen {
+				t.Errorf("calculateBollingerSeries() percentB length = %d, want %d", len(percentBValues), tt.expectedLen)
+			}
+			if len(bandwidthValues) != tt.expectedLen {
+				t.Errorf("calculateBollingerSeries() bandwidth length = %d, want %d", len(bandwidthValues), tt.expectedLen)
+			}
+
+			if tt.expectNonEmpty {
+				for i, bw := range bandwidthValues {
+					// Bandwidth 应该 >= 0
+					if bw < 0 {
+						t.Errorf("Bandwidth[%d] = %.3f, expected >= 0", i, bw)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestCalculateBollingerSeries_ValuesConsistency 测试 Bollinger 序列值与单值计算的一致性
+func TestCalculateBollingerSeries_ValuesConsistency(t *testing.T) {
+	klines := generateTestKlines(30)
+
+	// 序列最后一个值应该等于单值计算的结果
+	percentBSeries, bandwidthSeries := calculateBollingerSeries(klines, 20, 2.0)
+	percentBSingle, bandwidthSingle := calculateBollingerBands(klines, 20, 2.0)
+
+	if len(percentBSeries) == 0 {
+		t.Fatal("Bollinger series should not be empty")
+	}
+
+	tolerance := 0.0001
+
+	lastPercentB := percentBSeries[len(percentBSeries)-1]
+	if math.Abs(lastPercentB-percentBSingle) > tolerance {
+		t.Errorf("Last percentB series value (%.6f) should equal single percentB (%.6f)",
+			lastPercentB, percentBSingle)
+	}
+
+	lastBandwidth := bandwidthSeries[len(bandwidthSeries)-1]
+	if math.Abs(lastBandwidth-bandwidthSingle) > tolerance {
+		t.Errorf("Last bandwidth series value (%.6f) should equal single bandwidth (%.6f)",
+			lastBandwidth, bandwidthSingle)
+	}
+}
