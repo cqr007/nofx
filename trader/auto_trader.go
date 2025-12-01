@@ -99,9 +99,9 @@ type AutoTrader struct {
 	lastResetTime         time.Time
 	stopUntil             time.Time
 	isRunning             bool
-	startTime             time.Time          // 系统启动时间
-	callCount             int                // AI调用次数
-	statusMutex           sync.RWMutex       // 保护 isRunning, startTime, callCount 的并发访问
+	startTime             time.Time                        // 系统启动时间
+	callCount             int                              // AI调用次数
+	statusMutex           sync.RWMutex                     // 保护 isRunning, startTime, callCount 的并发访问
 	positionFirstSeenTime map[string]int64                 // 持仓首次出现时间 (symbol_side -> timestamp毫秒)
 	lastPositions         map[string]decision.PositionInfo // 上一次周期的持仓快照 (用于检测被动平仓)
 	positionStopLoss      map[string]float64               // 持仓止损价格 (symbol_side -> stop_loss_price)
@@ -495,7 +495,7 @@ func (at *AutoTrader) runCycle() error {
 				closed.Symbol,
 				closed.Side,
 				closed.EntryPrice,
-				action.Price,    // 使用真实成交价格（已矫正）
+				action.Price, // 使用真实成交价格（已矫正）
 				pnlPct,
 				reasonCN)
 		}
@@ -632,7 +632,7 @@ func (at *AutoTrader) runCycle() error {
 	}
 
 	// 9. 更新持仓快照（用于下一周期检测被动平仓）
-	at.updatePositionSnapshot(ctx.Positions)
+	at.refreshPositionSnapshotAfterExecution(ctx.Positions)
 
 	// 10. 保存决策记录
 	if err := at.decisionLogger.LogDecision(record); err != nil {
@@ -804,7 +804,7 @@ func (at *AutoTrader) buildTradingContext() (*decision.Context, error) {
 		CurrentTime:     time.Now().Format("2006-01-02 15:04:05"),
 		RuntimeMinutes:  int(time.Since(at.startTime).Minutes()),
 		CallCount:       at.callCount,
-		Exchange:        at.exchange,                // 交易所名称
+		Exchange:        at.exchange,               // 交易所名称
 		BTCETHLeverage:  at.config.BTCETHLeverage,  // 使用配置的杠杆倍数
 		AltcoinLeverage: at.config.AltcoinLeverage, // 使用配置的杠杆倍数
 		Account: decision.AccountInfo{
@@ -927,13 +927,13 @@ func (at *AutoTrader) executeOpenLongWithRecord(decision *decision.Decision, act
 		log.Printf("  ⚠ 设置止损失败: %v", err)
 	} else {
 		at.positionStopLoss[posKey] = decision.StopLoss // 记录止损价格
-		actionRecord.StopLoss = decision.StopLoss      // Issue #102: 记录到日志用于重启恢复
+		actionRecord.StopLoss = decision.StopLoss       // Issue #102: 记录到日志用于重启恢复
 	}
 	if err := at.trader.SetTakeProfit(decision.Symbol, "LONG", quantity, decision.TakeProfit); err != nil {
 		log.Printf("  ⚠ 设置止盈失败: %v", err)
 	} else {
 		at.positionTakeProfit[posKey] = decision.TakeProfit // 记录止盈价格
-		actionRecord.TakeProfit = decision.TakeProfit      // Issue #102: 记录到日志用于重启恢复
+		actionRecord.TakeProfit = decision.TakeProfit       // Issue #102: 记录到日志用于重启恢复
 	}
 
 	// ✅ 验证实际成交价格和风险（基于实际成交数据）
@@ -1022,13 +1022,13 @@ func (at *AutoTrader) executeOpenShortWithRecord(decision *decision.Decision, ac
 		log.Printf("  ⚠ 设置止损失败: %v", err)
 	} else {
 		at.positionStopLoss[posKey] = decision.StopLoss // 记录止损价格
-		actionRecord.StopLoss = decision.StopLoss      // Issue #102: 记录到日志用于重启恢复
+		actionRecord.StopLoss = decision.StopLoss       // Issue #102: 记录到日志用于重启恢复
 	}
 	if err := at.trader.SetTakeProfit(decision.Symbol, "SHORT", quantity, decision.TakeProfit); err != nil {
 		log.Printf("  ⚠ 设置止盈失败: %v", err)
 	} else {
 		at.positionTakeProfit[posKey] = decision.TakeProfit // 记录止盈价格
-		actionRecord.TakeProfit = decision.TakeProfit      // Issue #102: 记录到日志用于重启恢复
+		actionRecord.TakeProfit = decision.TakeProfit       // Issue #102: 记录到日志用于重启恢复
 	}
 
 	// ✅ 验证实际成交价格和风险（基于实际成交数据）
@@ -2069,11 +2069,11 @@ func (at *AutoTrader) generateAutoCloseActions(closedPositions []decision.Positi
 			Symbol:    pos.Symbol,
 			Quantity:  pos.Quantity,
 			Leverage:  pos.Leverage,
-			Price:     closePrice,    // 推断的平仓价格（止损/止盈/强平/市价）
-			OrderID:   0,             // 自动平仓没有订单ID
-			Timestamp: time.Now(),    // 检测时间（非真实触发时间）
+			Price:     closePrice, // 推断的平仓价格（止损/止盈/强平/市价）
+			OrderID:   0,          // 自动平仓没有订单ID
+			Timestamp: time.Now(), // 检测时间（非真实触发时间）
 			Success:   true,
-			Error:     closeReason,   // 使用 Error 字段存储平仓原因（stop_loss/take_profit/liquidation/manual/unknown）
+			Error:     closeReason, // 使用 Error 字段存储平仓原因（stop_loss/take_profit/liquidation/manual/unknown）
 		})
 	}
 
@@ -2147,4 +2147,58 @@ func (at *AutoTrader) updatePositionSnapshot(currentPositions []decision.Positio
 		key := pos.Symbol + "_" + pos.Side
 		at.lastPositions[key] = pos
 	}
+}
+
+// refreshPositionSnapshotAfterExecution 使用真实持仓刷新快照，避免用执行前的持仓导致误判 auto_close
+func (at *AutoTrader) refreshPositionSnapshotAfterExecution(ctxPositions []decision.PositionInfo) {
+	latestPositions, err := at.trader.GetPositions()
+	if err != nil {
+		log.Printf("⚠️ 获取最新持仓失败，使用执行前快照: %v", err)
+		at.updatePositionSnapshot(ctxPositions)
+		return
+	}
+
+	postDecisionPositions := make([]decision.PositionInfo, 0, len(latestPositions))
+	for _, pos := range latestPositions {
+		symbol, _ := pos["symbol"].(string)
+		side, _ := pos["side"].(string)
+		entryPrice, _ := pos["entryPrice"].(float64)
+		markPrice, _ := pos["markPrice"].(float64)
+		quantity, _ := pos["positionAmt"].(float64)
+		if quantity < 0 {
+			quantity = -quantity
+		}
+		unrealizedPnl, _ := pos["unRealizedProfit"].(float64)
+		liquidationPrice, _ := pos["liquidationPrice"].(float64)
+
+		leverage := 10
+		if lev, ok := pos["leverage"].(float64); ok {
+			leverage = int(lev)
+		}
+
+		marginUsed := 0.0
+		if entryPrice > 0 && leverage > 0 {
+			marginUsed = (quantity * entryPrice) / float64(leverage)
+		}
+		pnlPct := calculatePnLPercentage(unrealizedPnl, marginUsed)
+
+		posKey := symbol + "_" + side
+		postDecisionPositions = append(postDecisionPositions, decision.PositionInfo{
+			Symbol:           symbol,
+			Side:             side,
+			EntryPrice:       entryPrice,
+			MarkPrice:        markPrice,
+			Quantity:         quantity,
+			Leverage:         leverage,
+			UnrealizedPnL:    unrealizedPnl,
+			UnrealizedPnLPct: pnlPct,
+			LiquidationPrice: liquidationPrice,
+			MarginUsed:       marginUsed,
+			UpdateTime:       at.positionFirstSeenTime[posKey],
+			StopLoss:         at.positionStopLoss[posKey],
+			TakeProfit:       at.positionTakeProfit[posKey],
+		})
+	}
+
+	at.updatePositionSnapshot(postDecisionPositions)
 }

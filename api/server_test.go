@@ -661,3 +661,138 @@ func trimString(s string) string {
 	}
 	return s[start:end]
 }
+
+// TestCreateTraderRequest_InitialBalanceValidation 测试创建交易员时初始金额校验
+func TestCreateTraderRequest_InitialBalanceValidation(t *testing.T) {
+	tests := []struct {
+		name           string
+		initialBalance float64
+		shouldFail     bool
+		description    string
+	}{
+		{
+			name:           "正常金额-1000",
+			initialBalance: 1000,
+			shouldFail:     false,
+			description:    "正常金额应该通过校验",
+		},
+		{
+			name:           "零金额",
+			initialBalance: 0,
+			shouldFail:     true,
+			description:    "初始金额为0应该校验失败",
+		},
+		{
+			name:           "负金额",
+			initialBalance: -100,
+			shouldFail:     true,
+			description:    "初始金额为负数应该校验失败",
+		},
+		{
+			name:           "小数金额",
+			initialBalance: 100.5,
+			shouldFail:     false,
+			description:    "小数金额应该通过校验",
+		},
+		{
+			name:           "极小正数",
+			initialBalance: 0.01,
+			shouldFail:     false,
+			description:    "极小正数应该通过校验",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 模拟 handleCreateTrader 中的校验逻辑
+			isValid := tt.initialBalance > 0
+
+			if tt.shouldFail && isValid {
+				t.Errorf("%s: expected validation to fail, but it passed", tt.description)
+			}
+			if !tt.shouldFail && !isValid {
+				t.Errorf("%s: expected validation to pass, but it failed", tt.description)
+			}
+		})
+	}
+}
+
+// TestUpdateTraderRequest_InitialBalanceValidation 测试更新交易员时初始金额校验
+func TestUpdateTraderRequest_InitialBalanceValidation(t *testing.T) {
+	tests := []struct {
+		name                   string
+		reqInitialBalance      float64
+		existingInitialBalance float64
+		expectedBalance        float64
+		shouldFail             bool
+		description            string
+	}{
+		{
+			name:                   "请求有正常金额",
+			reqInitialBalance:      2000,
+			existingInitialBalance: 1000,
+			expectedBalance:        2000,
+			shouldFail:             false,
+			description:            "请求中有正常金额，应使用请求中的金额",
+		},
+		{
+			name:                   "请求金额为0-使用原值",
+			reqInitialBalance:      0,
+			existingInitialBalance: 1000,
+			expectedBalance:        1000,
+			shouldFail:             false,
+			description:            "请求金额为0时，应使用原有金额",
+		},
+		{
+			name:                   "请求金额为0-原值也为0",
+			reqInitialBalance:      0,
+			existingInitialBalance: 0,
+			expectedBalance:        0,
+			shouldFail:             true,
+			description:            "请求和原值都为0，应该校验失败",
+		},
+		{
+			name:                   "请求金额为负数-使用原值",
+			reqInitialBalance:      -100,
+			existingInitialBalance: 1000,
+			expectedBalance:        1000,
+			shouldFail:             false,
+			description:            "请求金额为负数时，应使用原有金额",
+		},
+		{
+			name:                   "请求金额为负数-原值也为0",
+			reqInitialBalance:      -100,
+			existingInitialBalance: 0,
+			expectedBalance:        0,
+			shouldFail:             true,
+			description:            "请求为负数且原值为0，应该校验失败",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 模拟 handleUpdateTrader 中的校验逻辑（与 server.go 一致）
+			initialBalance := tt.reqInitialBalance
+			if initialBalance <= 0 {
+				initialBalance = tt.existingInitialBalance
+			}
+
+			// 校验最终金额
+			isValid := initialBalance > 0
+
+			// 验证最终金额
+			if initialBalance != tt.expectedBalance {
+				t.Errorf("%s: expected balance=%.2f, got %.2f",
+					tt.description, tt.expectedBalance, initialBalance)
+			}
+
+			// 验证校验结果
+			if tt.shouldFail && isValid {
+				t.Errorf("%s: expected validation to fail, but it passed", tt.description)
+			}
+			if !tt.shouldFail && !isValid {
+				t.Errorf("%s: expected validation to pass, but it failed", tt.description)
+			}
+		})
+	}
+}

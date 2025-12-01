@@ -1,35 +1,10 @@
 package market
 
 import (
-	"math"
 	"testing"
 )
 
-// generateTestKlines 生成测试用的 K线数据
-func generateTestKlines(count int) []Kline {
-	klines := make([]Kline, count)
-	for i := 0; i < count; i++ {
-		// 生成模拟的价格数据，有一定的波动
-		basePrice := 100.0
-		variance := float64(i%10) * 0.5
-		open := basePrice + variance
-		high := open + 1.0
-		low := open - 0.5
-		close := open + 0.3
-		volume := 1000.0 + float64(i*100)
-
-		klines[i] = Kline{
-			OpenTime:  int64(i * 300000), // 5分钟间隔
-			Open:      open,
-			High:      high,
-			Low:       low,
-			Close:     close,
-			Volume:    volume,
-			CloseTime: int64((i+1)*300000 - 1),
-		}
-	}
-	return klines
-}
+// generateTestKlines 定义在 indicators_test.go 中
 
 // TestCalculateIntradaySeries_VolumeCollection 测试 Volume 数据收集
 func TestCalculateIntradaySeries_VolumeCollection(t *testing.T) {
@@ -187,100 +162,7 @@ func TestCalculateIntradaySeries_ATR14(t *testing.T) {
 	}
 }
 
-// TestCalculateATR 测试 ATR 计算函数
-func TestCalculateATR(t *testing.T) {
-	tests := []struct {
-		name       string
-		klines     []Kline
-		period     int
-		expectZero bool
-	}{
-		{
-			name: "正常计算 - 足够数据",
-			klines: []Kline{
-				{High: 102.0, Low: 100.0, Close: 101.0},
-				{High: 103.0, Low: 101.0, Close: 102.0},
-				{High: 104.0, Low: 102.0, Close: 103.0},
-				{High: 105.0, Low: 103.0, Close: 104.0},
-				{High: 106.0, Low: 104.0, Close: 105.0},
-				{High: 107.0, Low: 105.0, Close: 106.0},
-				{High: 108.0, Low: 106.0, Close: 107.0},
-				{High: 109.0, Low: 107.0, Close: 108.0},
-				{High: 110.0, Low: 108.0, Close: 109.0},
-				{High: 111.0, Low: 109.0, Close: 110.0},
-				{High: 112.0, Low: 110.0, Close: 111.0},
-				{High: 113.0, Low: 111.0, Close: 112.0},
-				{High: 114.0, Low: 112.0, Close: 113.0},
-				{High: 115.0, Low: 113.0, Close: 114.0},
-				{High: 116.0, Low: 114.0, Close: 115.0},
-			},
-			period:     14,
-			expectZero: false,
-		},
-		{
-			name: "数据不足 - 等于period",
-			klines: []Kline{
-				{High: 102.0, Low: 100.0, Close: 101.0},
-				{High: 103.0, Low: 101.0, Close: 102.0},
-			},
-			period:     2,
-			expectZero: true,
-		},
-		{
-			name: "数据不足 - 少于period",
-			klines: []Kline{
-				{High: 102.0, Low: 100.0, Close: 101.0},
-			},
-			period:     14,
-			expectZero: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			atr := calculateATR(tt.klines, tt.period)
-
-			if tt.expectZero {
-				if atr != 0 {
-					t.Errorf("calculateATR() = %.3f, expected 0 (insufficient data)", atr)
-				}
-			} else {
-				if atr <= 0 {
-					t.Errorf("calculateATR() = %.3f, expected > 0", atr)
-				}
-			}
-		})
-	}
-}
-
-// TestCalculateATR_TrueRange 测试 ATR 的 True Range 计算正确性
-func TestCalculateATR_TrueRange(t *testing.T) {
-	// 创建一个简单的测试用例，手动计算期望的 ATR
-	klines := []Kline{
-		{High: 50.0, Low: 48.0, Close: 49.0}, // TR = 2.0
-		{High: 51.0, Low: 49.0, Close: 50.0}, // TR = max(2.0, 2.0, 1.0) = 2.0
-		{High: 52.0, Low: 50.0, Close: 51.0}, // TR = max(2.0, 2.0, 1.0) = 2.0
-		{High: 53.0, Low: 51.0, Close: 52.0}, // TR = 2.0
-		{High: 54.0, Low: 52.0, Close: 53.0}, // TR = 2.0
-	}
-
-	atr := calculateATR(klines, 3)
-
-	// 期望的计算：
-	// TR[1] = max(51-49, |51-49|, |49-49|) = 2.0
-	// TR[2] = max(52-50, |52-50|, |50-50|) = 2.0
-	// TR[3] = max(53-51, |53-51|, |51-51|) = 2.0
-	// 初始 ATR = (2.0 + 2.0 + 2.0) / 3 = 2.0
-	// TR[4] = max(54-52, |54-52|, |52-52|) = 2.0
-	// 平滑 ATR = (2.0*2 + 2.0) / 3 = 2.0
-
-	expectedATR := 2.0
-	tolerance := 0.01 // 允许小的浮点误差
-
-	if math.Abs(atr-expectedATR) > tolerance {
-		t.Errorf("calculateATR() = %.3f, want approximately %.3f", atr, expectedATR)
-	}
-}
+// TestCalculateATR* 测试已移动到 indicators_test.go
 
 // TestCalculateIntradaySeries_ConsistencyWithOtherIndicators 测试 Volume 和其他指标的一致性
 func TestCalculateIntradaySeries_ConsistencyWithOtherIndicators(t *testing.T) {
@@ -497,62 +379,27 @@ func TestIsStaleData_EmptyKlines(t *testing.T) {
 	}
 }
 
-// TestCalculateATRSeries 测试 ATR 序列计算
-func TestCalculateATRSeries(t *testing.T) {
+// TestCalculateATRSeries* 测试已移动到 indicators_test.go
+
+// =============================================================================
+// ER 和 Bollinger Bands 集成测试
+// =============================================================================
+
+// TestCalculateIntradaySeries_ER 测试 ER 数据填充
+func TestCalculateIntradaySeries_ER(t *testing.T) {
 	tests := []struct {
 		name           string
 		klineCount     int
-		period         int
-		expectedLen    int
 		expectNonEmpty bool
 	}{
 		{
-			name:           "足够数据 - 100根K线, period=14",
-			klineCount:     100,
-			period:         14,
-			expectedLen:    10, // 最多返回10个点
+			name:           "足够数据 - 30个K线",
+			klineCount:     30,
 			expectNonEmpty: true,
 		},
 		{
-			name:           "刚好足够 - 24根K线 (14+10), period=14",
-			klineCount:     24,
-			period:         14,
-			expectedLen:    10,
-			expectNonEmpty: true,
-		},
-		{
-			name:           "部分数据 - 20根K线, period=14",
-			klineCount:     20,
-			period:         14,
-			expectedLen:    6, // 20 - 14 = 6个点
-			expectNonEmpty: true,
-		},
-		{
-			name:           "最少数据 - 15根K线, period=14",
-			klineCount:     15,
-			period:         14,
-			expectedLen:    1, // 只有1个ATR值
-			expectNonEmpty: true,
-		},
-		{
-			name:           "数据不足 - 14根K线, period=14",
-			klineCount:     14,
-			period:         14,
-			expectedLen:    0,
-			expectNonEmpty: false,
-		},
-		{
-			name:           "数据不足 - 10根K线, period=14",
+			name:           "数据不足 - 10个K线",
 			klineCount:     10,
-			period:         14,
-			expectedLen:    0,
-			expectNonEmpty: false,
-		},
-		{
-			name:           "空数据",
-			klineCount:     0,
-			period:         14,
-			expectedLen:    0,
 			expectNonEmpty: false,
 		},
 	}
@@ -560,83 +407,336 @@ func TestCalculateATRSeries(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			klines := generateTestKlines(tt.klineCount)
-			atrValues := calculateATRSeries(klines, tt.period)
+			data := calculateIntradaySeries(klines)
 
-			if len(atrValues) != tt.expectedLen {
-				t.Errorf("calculateATRSeries() length = %d, want %d", len(atrValues), tt.expectedLen)
+			if data == nil {
+				t.Fatal("calculateIntradaySeries returned nil")
 			}
 
 			if tt.expectNonEmpty {
-				for i, v := range atrValues {
-					if v <= 0 {
-						t.Errorf("ATR[%d] = %.3f, expected > 0", i, v)
+				if len(data.ER10Values) == 0 {
+					t.Error("ER10Values should not be empty")
+				}
+				// ER 值应该在 0-1 范围内
+				for i, v := range data.ER10Values {
+					if v < 0 || v > 1 {
+						t.Errorf("ER10Values[%d] = %.3f, expected in range [0, 1]", i, v)
 					}
+				}
+			} else {
+				// 数据不足时返回空切片
+				if len(data.ER10Values) != 0 {
+					t.Errorf("ER10Values should be empty for insufficient data, got %d", len(data.ER10Values))
 				}
 			}
 		})
 	}
 }
 
-// TestCalculateATRSeries_ValuesConsistency 测试 ATR 序列值与单值计算的一致性
-func TestCalculateATRSeries_ValuesConsistency(t *testing.T) {
-	klines := generateTestKlines(30)
-
-	// 序列最后一个值应该等于单值计算的结果
-	atrSeries := calculateATRSeries(klines, 14)
-	atrSingle := calculateATR(klines, 14)
-
-	if len(atrSeries) == 0 {
-		t.Fatal("ATR series should not be empty")
+// TestCalculateIntradaySeries_BollingerBands 测试 Bollinger Bands 数据填充
+func TestCalculateIntradaySeries_BollingerBands(t *testing.T) {
+	tests := []struct {
+		name           string
+		klineCount     int
+		expectNonEmpty bool
+	}{
+		{
+			name:           "足够数据 - 30个K线",
+			klineCount:     30,
+			expectNonEmpty: true,
+		},
+		{
+			name:           "数据不足 - 10个K线",
+			klineCount:     10,
+			expectNonEmpty: false,
+		},
 	}
 
-	lastValue := atrSeries[len(atrSeries)-1]
-	tolerance := 0.0001
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			klines := generateTestKlines(tt.klineCount)
+			data := calculateIntradaySeries(klines)
 
-	if math.Abs(lastValue-atrSingle) > tolerance {
-		t.Errorf("Last ATR series value (%.6f) should equal single ATR (%.6f)",
-			lastValue, atrSingle)
+			if data == nil {
+				t.Fatal("calculateIntradaySeries returned nil")
+			}
+
+			if tt.expectNonEmpty {
+				if len(data.BollingerBandwidths) == 0 {
+					t.Error("BollingerBandwidths should not be empty")
+				}
+				// Bandwidth 应该 >= 0
+				for i, bw := range data.BollingerBandwidths {
+					if bw < 0 {
+						t.Errorf("BollingerBandwidths[%d] = %.3f, expected >= 0", i, bw)
+					}
+				}
+			} else {
+				// 数据不足时返回空切片
+				if len(data.BollingerBandwidths) != 0 || len(data.BollingerPercentBs) != 0 {
+					t.Errorf("Bollinger slices should be empty for insufficient data")
+				}
+			}
+		})
 	}
 }
 
-// TestCalculateATRSeries_TrendDetection 测试 ATR 序列能够检测趋势
-func TestCalculateATRSeries_TrendDetection(t *testing.T) {
-	// 创建波动率递增的K线数据
-	expandingKlines := make([]Kline, 30)
-	for i := 0; i < 30; i++ {
-		basePrice := 100.0
-		// 波动率随时间增加
-		volatility := 1.0 + float64(i)*0.1
-		expandingKlines[i] = Kline{
-			High:  basePrice + volatility,
-			Low:   basePrice - volatility,
-			Close: basePrice,
+// TestCalculateMidTermSeries15m_ERAndBollinger 测试 15m 数据的 ER 和 BB
+func TestCalculateMidTermSeries15m_ERAndBollinger(t *testing.T) {
+	klines := generateTestKlines(30)
+	data := calculateMidTermSeries15m(klines)
+
+	if data == nil {
+		t.Fatal("calculateMidTermSeries15m returned nil")
+	}
+
+	// ER10Values 应该是一个切片，每个值在 0-1 范围内
+	if len(data.ER10Values) == 0 {
+		t.Error("ER10Values is empty")
+	}
+	for i, er := range data.ER10Values {
+		if er < 0 || er > 1 {
+			t.Errorf("ER10Values[%d] = %.3f, expected in range [0, 1]", i, er)
 		}
 	}
 
-	atrSeries := calculateATRSeries(expandingKlines, 14)
+	// BollingerBandwidths 应该是一个切片，每个值 > 0
+	if len(data.BollingerBandwidths) == 0 {
+		t.Error("BollingerBandwidths is empty")
+	}
+	for i, bw := range data.BollingerBandwidths {
+		if bw <= 0 {
+			t.Errorf("BollingerBandwidths[%d] = %.3f, expected > 0", i, bw)
+		}
+	}
+}
 
-	if len(atrSeries) < 2 {
-		t.Fatal("ATR series should have at least 2 values for trend detection")
+// TestCalculateMidTermSeries1h_ERAndBollinger 测试 1h 数据的 ER 和 BB
+func TestCalculateMidTermSeries1h_ERAndBollinger(t *testing.T) {
+	klines := generateTestKlines(30)
+	data := calculateMidTermSeries1h(klines)
+
+	if data == nil {
+		t.Fatal("calculateMidTermSeries1h returned nil")
 	}
 
-	// 验证 ATR 序列整体呈递增趋势
-	firstHalf := atrSeries[:len(atrSeries)/2]
-	secondHalf := atrSeries[len(atrSeries)/2:]
-
-	avgFirst := 0.0
-	for _, v := range firstHalf {
-		avgFirst += v
+	// ER10Values 应该是一个切片，每个值在 0-1 范围内
+	if len(data.ER10Values) == 0 {
+		t.Error("ER10Values is empty")
 	}
-	avgFirst /= float64(len(firstHalf))
-
-	avgSecond := 0.0
-	for _, v := range secondHalf {
-		avgSecond += v
+	for i, er := range data.ER10Values {
+		if er < 0 || er > 1 {
+			t.Errorf("ER10Values[%d] = %.3f, expected in range [0, 1]", i, er)
+		}
 	}
-	avgSecond /= float64(len(secondHalf))
 
-	if avgSecond <= avgFirst {
-		t.Errorf("Expanding volatility should produce increasing ATR: first half avg=%.3f, second half avg=%.3f",
-			avgFirst, avgSecond)
+	// BollingerBandwidths 应该是一个切片，每个值 > 0
+	if len(data.BollingerBandwidths) == 0 {
+		t.Error("BollingerBandwidths is empty")
+	}
+	for i, bw := range data.BollingerBandwidths {
+		if bw <= 0 {
+			t.Errorf("BollingerBandwidths[%d] = %.3f, expected > 0", i, bw)
+		}
+	}
+}
+
+// =============================================================================
+// Format() 输出测试 - 验证 ER 和 Bollinger Bands 在输出中可见
+// =============================================================================
+
+// TestFormat_ContainsERAndBollingerBands 测试 Format() 输出包含 ER 和 Bollinger Bands
+func TestFormat_ContainsERAndBollingerBands(t *testing.T) {
+	// 创建包含有效 ER 和 BB 数据的 Data 对象
+	data := &Data{
+		Symbol:        "BTCUSDT",
+		CurrentPrice:  50000.0,
+		PriceChange1h: 0.5,
+		CurrentEMA20:  49500.0,
+		CurrentMACD:   100.0,
+		CurrentRSI7:   55.0,
+		FundingRate:   0.0001,
+		IntradaySeries: &IntradayData{
+			SeriesFields: SeriesFields{
+				MidPrices:           []float64{49000, 49500, 50000},
+				ER10Values:          []float64{0.70, 0.72, 0.75}, // 有效 ER 序列
+				BollingerPercentBs:  []float64{0.55, 0.58, 0.6},  // 有效 %B 序列
+				BollingerBandwidths: []float64{0.04, 0.045, 0.05}, // 有效 Bandwidth 序列
+			},
+		},
+		MidTermSeries15m: &MidTermData15m{
+			SeriesFields: SeriesFields{
+				MidPrices:           []float64{49000, 49500, 50000},
+				ER10Values:          []float64{0.60, 0.63, 0.65},
+				BollingerPercentBs:  []float64{0.50, 0.52, 0.55},
+				BollingerBandwidths: []float64{0.03, 0.035, 0.04},
+			},
+		},
+		MidTermSeries1h: &MidTermData1h{
+			SeriesFields: SeriesFields{
+				MidPrices:           []float64{49000, 49500, 50000},
+				ER10Values:          []float64{0.50, 0.52, 0.55},
+				BollingerPercentBs:  []float64{0.45, 0.48, 0.5},
+				BollingerBandwidths: []float64{0.02, 0.025, 0.03},
+			},
+		},
+	}
+
+	output := Format(data, false)
+
+	// 验证 IntradaySeries 的 ER 和 BB 在输出中
+	tests := []struct {
+		name     string
+		contains string
+	}{
+		{"Intraday ER", "Efficiency Ratio"},
+		{"Intraday %B", "Bollinger %B"},
+		{"Intraday Bandwidth", "Bandwidth"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !containsSubstr(output, tt.contains) {
+				t.Errorf("Format() output missing %q\nOutput:\n%s", tt.contains, output)
+			}
+		})
+	}
+}
+
+// TestFormat_SkipsNaNValues 测试 Format() 跳过 NaN 值不输出
+func TestFormat_SkipsNaNValues(t *testing.T) {
+	// 创建包含 NaN 值的 Data 对象（模拟数据不足情况）
+	data := &Data{
+		Symbol:        "BTCUSDT",
+		CurrentPrice:  50000.0,
+		PriceChange1h: 0.5,
+		CurrentEMA20:  49500.0,
+		CurrentMACD:   100.0,
+		CurrentRSI7:   55.0,
+		FundingRate:   0.0001,
+		IntradaySeries: &IntradayData{
+			SeriesFields: SeriesFields{
+				MidPrices:           []float64{49000, 49500, 50000},
+				ER10Values:          []float64{}, // 空切片，不应输出
+				BollingerPercentBs:  []float64{}, // 空切片，不应输出
+				BollingerBandwidths: []float64{}, // 空切片，不应输出
+			},
+		},
+	}
+
+	output := Format(data, false)
+
+	// 验证空切片不会导致输出问题
+	if containsSubstr(output, "NaN") {
+		t.Errorf("Format() output should not contain 'NaN' string\nOutput:\n%s", output)
+	}
+
+	// 当 ER 为空时，不应该输出 Efficiency Ratio 行
+	if containsSubstr(output, "Efficiency Ratio") {
+		t.Errorf("Format() should skip Efficiency Ratio when ER10Values is empty\nOutput:\n%s", output)
+	}
+}
+
+// containsSubstr 检查字符串是否包含子串（辅助函数）
+func containsSubstr(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+// =============================================================================
+// Format() 重构基准测试 - 确保重构后输出不变
+// =============================================================================
+
+// TestFormat_SeriesOutputStructure 测试 3 个 Series 块的输出结构
+func TestFormat_SeriesOutputStructure(t *testing.T) {
+	// 创建完整的测试数据
+	data := &Data{
+		Symbol:        "BTCUSDT",
+		CurrentPrice:  50000.0,
+		PriceChange1h: 0.5,
+		CurrentEMA20:  49500.0,
+		CurrentMACD:   100.0,
+		CurrentRSI7:   55.0,
+		FundingRate:   0.0001,
+		IntradaySeries: &IntradayData{
+			SeriesFields: SeriesFields{
+				MidPrices:           []float64{49000, 49500, 50000},
+				EMA20Values:         []float64{48900, 49400, 49900},
+				MACDValues:          []float64{50, 75, 100},
+				RSI7Values:          []float64{45, 50, 55},
+				RSI14Values:         []float64{48, 52, 54},
+				Volume:              []float64{1000, 1100, 1200},
+				ATR14Values:         []float64{200, 210, 220},
+				ER10Values:          []float64{0.70, 0.72, 0.75},
+				BollingerPercentBs:  []float64{0.55, 0.58, 0.6},
+				BollingerBandwidths: []float64{0.04, 0.045, 0.05},
+			},
+		},
+		MidTermSeries15m: &MidTermData15m{
+			SeriesFields: SeriesFields{
+				MidPrices:           []float64{48500, 49000, 49500},
+				EMA20Values:         []float64{48400, 48900, 49400},
+				MACDValues:          []float64{40, 60, 80},
+				RSI7Values:          []float64{42, 48, 52},
+				RSI14Values:         []float64{44, 50, 53},
+				Volume:              []float64{5000, 5500, 6000},
+				ATR14Values:         []float64{300, 310, 320},
+				ER10Values:          []float64{0.60, 0.63, 0.65},
+				BollingerPercentBs:  []float64{0.50, 0.52, 0.55},
+				BollingerBandwidths: []float64{0.03, 0.035, 0.04},
+			},
+		},
+		MidTermSeries1h: &MidTermData1h{
+			SeriesFields: SeriesFields{
+				MidPrices:           []float64{48000, 48500, 49000},
+				EMA20Values:         []float64{47900, 48400, 48900},
+				MACDValues:          []float64{30, 50, 70},
+				RSI7Values:          []float64{40, 45, 50},
+				RSI14Values:         []float64{42, 48, 51},
+				Volume:              []float64{20000, 22000, 24000},
+				ATR14Values:         []float64{400, 420, 440},
+				ER10Values:          []float64{0.50, 0.52, 0.55},
+				BollingerPercentBs:  []float64{0.45, 0.48, 0.5},
+				BollingerBandwidths: []float64{0.02, 0.025, 0.03},
+			},
+		},
+	}
+
+	output := Format(data, false)
+
+	// 验证每个 Series 块包含所有预期的指标
+	expectedPatterns := []struct {
+		name    string
+		pattern string
+	}{
+		// IntradaySeries (5m)
+		{"5m title", "Intraday series (5‑minute intervals"},
+		{"5m mid prices", "Mid prices:"},
+		{"5m EMA", "EMA indicators (20‑period):"},
+		{"5m MACD", "MACD indicators:"},
+		{"5m RSI7", "RSI indicators (7‑Period):"},
+		{"5m RSI14", "RSI indicators (14‑Period):"},
+		{"5m Volume", "Volume:"},
+		{"5m ATR", "ATR (14‑period):"},
+		{"5m ER", "Efficiency Ratio (10‑period):"},
+		{"5m BB", "Bollinger %B:"},
+
+		// MidTermSeries15m
+		{"15m title", "Mid‑term series (15‑minute intervals"},
+
+		// MidTermSeries1h
+		{"1h title", "Mid‑term series (1‑hour intervals"},
+	}
+
+	for _, tt := range expectedPatterns {
+		t.Run(tt.name, func(t *testing.T) {
+			if !containsSubstr(output, tt.pattern) {
+				t.Errorf("Format() output missing %q", tt.pattern)
+			}
+		})
 	}
 }
