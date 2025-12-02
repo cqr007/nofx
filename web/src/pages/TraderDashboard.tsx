@@ -909,66 +909,107 @@ function DecisionCard({
       {/* Decisions Actions */}
       {decision.decisions && decision.decisions.length > 0 && (
         <div className="space-y-2 mb-3">
-          {decision.decisions.map((action, j) => (
-            <div
-              key={j}
-              className="flex items-center gap-2 text-sm rounded px-3 py-2"
-              style={{ background: '#0B0E11' }}
-            >
-              <ExchangeLink
-                exchangeId={exchangeId}
-                symbol={action.symbol}
-                className="font-mono font-bold"
-                style={{ color: '#EAECEF' }}
-              />
-              <span
-                className="px-2 py-0.5 rounded text-xs font-bold"
-                style={
-                  action.action.includes('open')
-                    ? {
-                        background: 'rgba(96, 165, 250, 0.1)',
-                        color: '#60a5fa',
-                      }
-                    : {
-                        background: 'rgba(240, 185, 11, 0.1)',
-                        color: '#F0B90B',
-                      }
-                }
+          {decision.decisions.map((action, j) => {
+            // 判断是否有止损止盈信息需要显示在第二行
+            const hasOpenSlTp = action.action.includes('open') &&
+              ((action.stop_loss && action.stop_loss > 0) || (action.take_profit && action.take_profit > 0))
+            const hasUpdateSl = action.action === 'update_stop_loss' && action.new_stop_loss
+            const hasUpdateTp = action.action === 'update_take_profit' && action.new_take_profit
+            const hasSlTpRow = hasOpenSlTp || hasUpdateSl || hasUpdateTp
+
+            return (
+              <div
+                key={j}
+                className="text-sm rounded px-3 py-2"
+                style={{ background: '#0B0E11' }}
               >
-                {action.action}
-              </span>
-              {action.leverage > 0 && (
-                <span style={{ color: '#F0B90B' }}>{action.leverage}x</span>
-              )}
-              {action.price > 0 && (
-                <span
-                  className="font-mono text-xs"
-                  style={{ color: '#848E9C' }}
-                >
-                  @{action.price.toFixed(4)}
-                </span>
-              )}
-              <span style={{ color: action.success ? '#0ECB81' : '#F6465D' }}>
-                {action.success ? (
-                  <Check className="w-3 h-3 inline" />
-                ) : (
-                  <X className="w-3 h-3 inline" />
+                {/* 第一行：symbol + action + leverage + price + 状态 */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <ExchangeLink
+                    exchangeId={exchangeId}
+                    symbol={action.symbol}
+                    className="font-mono font-bold"
+                    style={{ color: '#EAECEF' }}
+                  />
+                  <span
+                    className="px-2 py-0.5 rounded text-xs font-bold"
+                    style={
+                      action.action.includes('open')
+                        ? {
+                            background: 'rgba(96, 165, 250, 0.1)',
+                            color: '#60a5fa',
+                          }
+                        : {
+                            background: 'rgba(240, 185, 11, 0.1)',
+                            color: '#F0B90B',
+                          }
+                    }
+                  >
+                    {action.action}
+                  </span>
+                  {action.leverage > 0 && (
+                    <span style={{ color: '#F0B90B' }}>{action.leverage}x</span>
+                  )}
+                  {action.price > 0 && (
+                    <span
+                      className="font-mono text-xs"
+                      style={{ color: '#848E9C' }}
+                    >
+                      @{action.price.toFixed(4)}
+                    </span>
+                  )}
+                  <span style={{ color: action.success ? '#0ECB81' : '#F6465D' }}>
+                    {action.success ? (
+                      <Check className="w-3 h-3 inline" />
+                    ) : (
+                      <X className="w-3 h-3 inline" />
+                    )}
+                  </span>
+                  {action.error && (
+                    <span className="text-xs" style={{ color: '#F6465D' }}>
+                      {action.error}
+                    </span>
+                  )}
+                </div>
+                {/* 第二行：止损止盈信息（如果有） */}
+                {hasSlTpRow && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs pl-1">
+                    {hasOpenSlTp && (
+                      <>
+                        {action.stop_loss && action.stop_loss > 0 && (
+                          <span style={{ color: '#F87171' }}>
+                            🛑 {action.stop_loss.toFixed(2)}
+                          </span>
+                        )}
+                        {action.take_profit && action.take_profit > 0 && (
+                          <span style={{ color: '#0ECB81' }}>
+                            🎯 {action.take_profit.toFixed(2)}
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {hasUpdateSl && (
+                      <span style={{ color: '#F87171' }}>
+                        🛑 {action.stop_loss ? `${action.stop_loss.toFixed(2)} → ` : ''}{action.new_stop_loss!.toFixed(2)}
+                      </span>
+                    )}
+                    {hasUpdateTp && (
+                      <span style={{ color: '#0ECB81' }}>
+                        🎯 {action.take_profit ? `${action.take_profit.toFixed(2)} → ` : ''}{action.new_take_profit!.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
                 )}
-              </span>
-              {action.error && (
-                <span className="text-xs ml-2" style={{ color: '#F6465D' }}>
-                  {action.error}
-                </span>
-              )}
-            </div>
-          ))}
+              </div>
+            )
+          })}
         </div>
       )}
 
       {/* Account State Summary */}
       {decision.account_state && (
         <div
-          className="flex gap-4 text-xs mb-3 rounded px-3 py-2"
+          className="flex gap-x-4 gap-y-1 text-xs mb-3 rounded px-3 py-2 flex-wrap"
           style={{ background: '#0B0E11', color: '#848E9C' }}
         >
           <span>

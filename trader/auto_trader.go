@@ -1183,6 +1183,9 @@ func (at *AutoTrader) executeUpdateStopLossWithRecord(decision *decision.Decisio
 	posKey := decision.Symbol + "_" + strings.ToLower(positionSide)
 	currentStopLoss := at.positionStopLoss[posKey]
 
+	// Issue #107: 记录更新前的止损价格，用于前端显示 "旧值 → 新值"
+	actionRecord.StopLoss = currentStopLoss
+
 	// ⚠️ 核心保护：防止止损倒退（Ratchet Stop Loss）
 	// 只有在 currentStopLoss > 0 (已设置过止损) 时才检查
 	if currentStopLoss > 0 {
@@ -1314,6 +1317,10 @@ func (at *AutoTrader) executeUpdateTakeProfitWithRecord(decision *decision.Decis
 	// 检查是否与当前止盈相同，避免重复操作
 	posKey := decision.Symbol + "_" + strings.ToLower(positionSide)
 	currentTakeProfit := at.positionTakeProfit[posKey]
+
+	// Issue #107: 记录更新前的止盈价格，用于前端显示 "旧值 → 新值"
+	actionRecord.TakeProfit = currentTakeProfit
+
 	if math.Abs(currentTakeProfit-decision.NewTakeProfit) < 0.01 {
 		log.Printf("  ℹ️  新止盈价格(%.2f)与当前止盈(%.2f)相同，跳过操作", decision.NewTakeProfit, currentTakeProfit)
 		return nil
