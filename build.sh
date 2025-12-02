@@ -43,12 +43,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_BINARY="nofx"
 SKIP_FRONTEND=false
 SKIP_TEST=false
+DO_RESTART=false
 
 # ------------------------------------------------------------------------
 # Parse Arguments
 # ------------------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
     case $1 in
+        restart)
+            DO_RESTART=true
+            shift
+            ;;
         --skip-frontend)
             SKIP_FRONTEND=true
             shift
@@ -64,7 +69,10 @@ while [[ $# -gt 0 ]]; do
         --help|-h)
             echo "NOFX Native Build Script"
             echo ""
-            echo "Usage: ./build.sh [options]"
+            echo "Usage: ./build.sh [command] [options]"
+            echo ""
+            echo "Commands:"
+            echo "  restart            Kill existing process, rebuild, and start"
             echo ""
             echo "Options:"
             echo "  --skip-frontend    Skip frontend build (use existing web/dist)"
@@ -72,12 +80,14 @@ while [[ $# -gt 0 ]]; do
             echo "  --output, -o       Output binary name (default: nofx)"
             echo "  --help, -h         Show this help message"
             echo ""
+            echo "Examples:"
+            echo "  ./build.sh                      # Build only"
+            echo "  ./build.sh restart              # Kill + rebuild + start"
+            echo "  ./build.sh restart --skip-test  # Kill + rebuild (skip tests) + start"
+            echo ""
             echo "Prerequisites:"
             echo "  - Go 1.21+"
             echo "  - Node.js 18+ (for frontend build)"
-            echo ""
-            echo "Output:"
-            echo "  - nofx binary with embedded frontend"
             exit 0
             ;;
         *)
@@ -200,6 +210,66 @@ build_backend() {
 }
 
 # ------------------------------------------------------------------------
+# Kill Existing Process (for restart)
+# ------------------------------------------------------------------------
+kill_existing() {
+    print_info "Checking for running nofx process..."
+    if pgrep -x "nofx" > /dev/null; then
+        local PID=$(pgrep -x "nofx")
+        print_info "Found nofx process (PID: $PID), sending SIGTERM..."
+        pkill -x "nofx"
+
+        # Wait for graceful shutdown (max 10 seconds)
+        for i in {1..10}; do
+            if ! pgrep -x "nofx" > /dev/null; then
+                print_success "Process terminated gracefully"
+                return
+            fi
+            sleep 1
+        done
+
+        # Force kill if still running
+        if pgrep -x "nofx" > /dev/null; then
+            print_warning "Process still running, sending SIGKILL..."
+            pkill -9 -x "nofx"
+            sleep 1
+        fi
+
+        if pgrep -x "nofx" > /dev/null; then
+            print_error "Failed to kill nofx process!"
+            exit 1
+        fi
+        print_success "Process killed"
+    else
+        print_info "No running nofx process found"
+    fi
+}
+
+# ------------------------------------------------------------------------
+# Start Binary (for restart)
+# ------------------------------------------------------------------------
+start_binary() {
+    print_info "Starting nofx..."
+    cd "$SCRIPT_DIR"
+
+    # Backup existing log file
+    if [ -f "nofx.log" ]; then
+        BACKUP_NAME="nofx.log.$(date +%Y%m%d_%H%M%S)"
+        mv nofx.log "$BACKUP_NAME"
+        print_info "Backed up old log to $BACKUP_NAME"
+    fi
+
+    ./$OUTPUT_BINARY > nofx.log 2>&1 &
+    sleep 2
+    if pgrep -x "nofx" > /dev/null; then
+        print_success "nofx started (PID: $(pgrep -x nofx))"
+    else
+        print_error "Failed to start nofx. Check nofx.log for details."
+        exit 1
+    fi
+}
+
+# ------------------------------------------------------------------------
 # Main
 # ------------------------------------------------------------------------
 main() {
@@ -210,6 +280,12 @@ main() {
     echo ""
 
     cd "$SCRIPT_DIR"
+
+    # Step 0: Kill existing process (if restart)
+    if [ "$DO_RESTART" = true ]; then
+        kill_existing
+        echo ""
+    fi
 
     # Step 1: Check prerequisites
     check_prerequisites
@@ -230,17 +306,33 @@ main() {
     build_backend
 
     echo ""
-    echo "═══════════════════════════════════════════════════════════════"
-    print_success "Build completed successfully!"
-    echo "═══════════════════════════════════════════════════════════════"
-    echo ""
-    print_info "Output: $SCRIPT_DIR/$OUTPUT_BINARY"
-    echo ""
-    print_info "To run:"
-    echo "  1. cp config.json.example config.json"
-    echo "  2. Edit config.json (set jwt_secret)"
-    echo "  3. ./$OUTPUT_BINARY"
-    echo "  4. Open http://localhost:3000"
+
+    # Step 5: Start binary (if restart)
+    if [ "$DO_RESTART" = true ]; then
+        start_binary
+        echo ""
+        echo "═══════════════════════════════════════════════════════════════"
+        print_success "Restart completed successfully!"
+        echo "═══════════════════════════════════════════════════════════════"
+        echo ""
+        print_info "Service is running at http://localhost:3000"
+        echo ""
+        print_info "Tailing nofx.log (Ctrl+C to exit)..."
+        echo ""
+        tail -f "$SCRIPT_DIR/nofx.log"
+    else
+        echo "═══════════════════════════════════════════════════════════════"
+        print_success "Build completed successfully!"
+        echo "═══════════════════════════════════════════════════════════════"
+        echo ""
+        print_info "Output: $SCRIPT_DIR/$OUTPUT_BINARY"
+        echo ""
+        print_info "To run:"
+        echo "  1. cp config.json.example config.json"
+        echo "  2. Edit config.json (set jwt_secret)"
+        echo "  3. ./$OUTPUT_BINARY"
+        echo "  4. Open http://localhost:3000"
+    fi
     echo ""
 }
 
