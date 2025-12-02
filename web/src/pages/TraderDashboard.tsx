@@ -6,6 +6,7 @@ import { EquityChart } from '../components/EquityChart'
 import AILearning from '../components/AILearning'
 import RecordLimitSelector from '../components/RecordLimitSelector'
 import FilterToggle from '../components/FilterToggle'
+import { CollapsibleContent } from '../components/ui/CollapsibleContent'
 import { PromptModal } from '../components/traders/PromptModal'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -23,10 +24,8 @@ import {
   X,
   XCircle,
   Eye,
-  Copy,
 } from 'lucide-react'
 import { stripLeadingIcons } from '../lib/text'
-import { copyWithToast } from '../lib/clipboard'
 import { ExchangeLink } from '../components/ExchangeLink'
 import type {
   SystemStatus,
@@ -799,8 +798,6 @@ function DecisionCard({
   language: Language
   exchangeId?: string
 }) {
-  const [showInputPrompt, setShowInputPrompt] = useState(false)
-  const [showCoT, setShowCoT] = useState(false)
 
   return (
     <div
@@ -835,75 +832,24 @@ function DecisionCard({
 
       {/* Input Prompt - Collapsible */}
       {decision.input_prompt && (
-        <div className="mb-3">
-          <button
-            onClick={() => setShowInputPrompt(!showInputPrompt)}
-            className="flex items-center gap-2 text-sm transition-colors"
-            style={{ color: '#60a5fa' }}
-          >
-            <span className="font-semibold flex items-center gap-2">
-              <Inbox className="w-4 h-4" /> {t('inputPrompt', language)}
-            </span>
-            <span className="text-xs">
-              {showInputPrompt
-                ? t('collapse', language)
-                : t('expand', language)}
-            </span>
-          </button>
-          {showInputPrompt && (
-            <div
-              className="mt-2 rounded p-4 text-sm font-mono whitespace-pre-wrap max-h-96 overflow-y-auto"
-              style={{
-                background: '#0B0E11',
-                border: '1px solid #2B3139',
-                color: '#EAECEF',
-              }}
-            >
-              {decision.input_prompt}
-            </div>
-          )}
-        </div>
+        <CollapsibleContent
+          icon={<Inbox className="w-4 h-4" />}
+          title={t('inputPrompt', language)}
+          titleColor="#60a5fa"
+          content={decision.input_prompt}
+          language={language}
+        />
       )}
 
       {/* AI Chain of Thought - Collapsible */}
       {decision.cot_trace && (
-        <div className="mb-3">
-          <button
-            onClick={() => setShowCoT(!showCoT)}
-            className="flex items-center gap-2 text-sm transition-colors"
-            style={{ color: '#F0B90B' }}
-          >
-            <span className="font-semibold flex items-center gap-2">
-              <Send className="w-4 h-4" />{' '}
-              {stripLeadingIcons(t('aiThinking', language))}
-            </span>
-            <span className="text-xs">
-              {showCoT ? t('collapse', language) : t('expand', language)}
-            </span>
-          </button>
-          {showCoT && (
-            <div className="mt-2 relative">
-              <button
-                onClick={() => copyWithToast(decision.cot_trace, t('copied', language))}
-                className="absolute top-2 right-2 p-1.5 rounded hover:bg-gray-700 transition-colors z-10"
-                title={t('copy', language)}
-                style={{ background: 'rgba(43, 49, 57, 0.8)' }}
-              >
-                <Copy className="w-4 h-4" style={{ color: '#848E9C' }} />
-              </button>
-              <div
-                className="rounded p-4 text-sm font-mono whitespace-pre-wrap max-h-96 overflow-y-auto"
-                style={{
-                  background: '#0B0E11',
-                  border: '1px solid #2B3139',
-                  color: '#EAECEF',
-                }}
-              >
-                {decision.cot_trace}
-              </div>
-            </div>
-          )}
-        </div>
+        <CollapsibleContent
+          icon={<Send className="w-4 h-4" />}
+          title={stripLeadingIcons(t('aiThinking', language))}
+          titleColor="#F0B90B"
+          content={decision.cot_trace}
+          language={language}
+        />
       )}
 
       {/* Decisions Actions */}
