@@ -339,6 +339,11 @@ func main() {
 		log.Fatalf("❌ 加载交易员失败: %v", err)
 	}
 
+	// 自动启动之前运行中的交易员
+	if err := traderManager.StartRunningTraders(database); err != nil {
+		log.Printf("⚠️ 自动启动交易员失败: %v", err)
+	}
+
 	// 获取数据库中的所有交易员配置（用于显示，使用default用户）
 	traders, err := database.GetTraders("default")
 	if err != nil {
