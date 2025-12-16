@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link2 } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 
 /**
  * Helper function to generate exchange URLs
@@ -70,7 +70,7 @@ export const ExchangeLink: React.FC<ExchangeLinkProps> = ({
       {...props}
     >
       {content}
-      <Link2 size={14} className="ml-1" />
+      <ExternalLink size={12} className="ml-1" />
     </a>
   )
 }

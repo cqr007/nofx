@@ -407,7 +407,7 @@ export default function TraderDashboard() {
           {selectedTrader.trading_symbols && (
             <>
               <span className="hidden sm:inline">•</span>
-              <TradingSymbolsDisplay symbols={selectedTrader.trading_symbols} language={language} />
+              <TradingSymbolsDisplay symbols={selectedTrader.trading_symbols} exchangeId={selectedTrader.exchange_id} language={language} />
             </>
           )}
         </div>
@@ -1054,9 +1054,11 @@ function DecisionCard({
 // TradingSymbolsDisplay Component - 显示关注币种列表，默认显示3个
 function TradingSymbolsDisplay({
   symbols,
+  exchangeId,
   language,
 }: {
   symbols: string
+  exchangeId?: string
   language: Language
 }) {
   const symbolList = symbols.split(',').map(s => s.trim()).filter(s => s)
@@ -1070,8 +1072,15 @@ function TradingSymbolsDisplay({
   return (
     <span className="whitespace-nowrap flex items-center gap-1">
       <span style={{ color: '#848E9C' }}>{t('coins', language)}:</span>
-      <span className="font-semibold" style={{ color: '#60a5fa' }}>
-        {visibleSymbols.join(', ')}
+      <span className="font-semibold flex items-center gap-1" style={{ color: '#60a5fa' }}>
+        {visibleSymbols.map((symbol, index) => (
+          <span key={symbol} className="inline-flex items-center">
+            <ExchangeLink exchangeId={exchangeId} symbol={symbol} className="text-[#60a5fa]">
+              {symbol}
+            </ExchangeLink>
+            {index < visibleSymbols.length - 1 && <span>,</span>}
+          </span>
+        ))}
       </span>
       {hasMore && (
         <span
