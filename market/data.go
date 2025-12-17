@@ -157,6 +157,9 @@ func Get(symbol string) (*Data, error) {
 		CurrentEMA20:      currentEMA20,
 		CurrentMACD:       currentMACD,
 		CurrentRSI7:       currentRSI7,
+		MA5:               ma5,
+		MA34:              ma34,
+		MA170:             ma170,
 		OpenInterest:      oiData,
 		FundingRate:       fundingRate,
 		IntradaySeries:    intradayData,
@@ -549,6 +552,10 @@ func Format(data *Data, skipSymbolMention bool) string {
 	priceStr := formatPriceWithDynamicPrecision(data.CurrentPrice)
 	sb.WriteString(fmt.Sprintf("current_price = %s, price_change_1h = %.2f%%, price_change_4h = %.2f%%, price_change_24h = %.2f%%\n\n",
 		priceStr, data.PriceChange1h, data.PriceChange4h, data.PriceChange24h))
+	sb.WriteString("Moving Averages (Important for Strategy):\n")
+	sb.WriteString(fmt.Sprintf("MA5: %s\n", safeFloatFmt(data.MA5)))
+	sb.WriteString(fmt.Sprintf("MA34: %s\n", safeFloatFmt(data.MA34)))
+	sb.WriteString(fmt.Sprintf("MA170: %s\n\n", safeFloatFmt(data.MA170)))
 	sb.WriteString(fmt.Sprintf("current_ema20 = %.3f, current_macd = %.3f, current_rsi (7 period) = %.3f\n\n",
 		data.CurrentEMA20, data.CurrentMACD, data.CurrentRSI7))
 
@@ -890,4 +897,11 @@ func isStaleData(klines []Kline, symbol string) bool {
 	// Price frozen but has volume: might be extremely low volatility market, allow but log warning
 	log.Printf("⚠️  %s detected extreme price stability (no fluctuation for %d consecutive periods), but volume is normal", symbol, stalePriceThreshold)
 	return false
-}
+    }
+    // safeFloatFmt 安全格式化浮点数，处理 NaN 和 Inf
+    func safeFloatFmt(v float64) string {
+	    if math.IsNaN(v) || math.IsInf(v, 0) {
+		    return "0.0000" // 遇到异常值返回 0
+	    }
+	    return fmt.Sprintf("%.4f", v)
+    }
