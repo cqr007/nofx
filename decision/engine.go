@@ -396,7 +396,7 @@ func buildSystemPrompt(accountEquity float64, btcEthLeverage, altcoinLeverage in
 	sb.WriteString("# 硬约束（风险控制）\n\n")
 	sb.WriteString("1. 最多持仓: 3个币种（质量>数量）\n")
 	sb.WriteString(fmt.Sprintf("2. ⚠️ **单币仓位上限（严格执行）**: 山寨%.0f U | BTC/ETH %.0f U\n",
-		accountEquity*1.5, accountEquity*10))
+		accountEquity*20, accountEquity*20))
 	sb.WriteString("   - **超出此限制的决策将被系统拒绝**\n")
 	sb.WriteString("   - 基于净值的仓位上限，实际开仓还需考虑可用余额\n")
 	sb.WriteString(fmt.Sprintf("3. 杠杆限制: **山寨币最大%dx杠杆** | **BTC/ETH最大%dx杠杆** (⚠️ 超限将被拒绝)\n", altcoinLeverage, btcEthLeverage))
@@ -407,6 +407,11 @@ func buildSystemPrompt(accountEquity float64, btcEthLeverage, altcoinLeverage in
 	// 3. 输出格式 - 动态生成
 	sb.WriteString("# 输出格式 (严格遵守)\n\n")
 	sb.WriteString("**必须使用XML标签 <reasoning> 和 <decision> 标签分隔思维链和决策JSON，避免解析错误**\n\n")
+	sb.WriteString("## ⚠️ JSON 数值格式严格约束 (CRITICAL)\n")
+	sb.WriteString("1. **绝对禁止**在 JSON 字段中使用数学公式、算式或非数字字符。\n")
+	sb.WriteString("   - ❌ 错误: \"new_take_profit\": 90246.90 - (10 * 49.45)\n")
+	sb.WriteString("   - ✅ 正确: \"new_take_profit\": 89752.40\n")
+	sb.WriteString("2. **所有数值字段**必须是计算后的最终结果 (Final Calculated Value)。\n\n")
 	sb.WriteString("## 格式要求\n\n")
 	sb.WriteString("<reasoning>\n")
 	sb.WriteString("你的思维链分析...\n")
@@ -420,7 +425,7 @@ func buildSystemPrompt(accountEquity float64, btcEthLeverage, altcoinLeverage in
 	sb.WriteString("]\n```\n")
 	sb.WriteString("</decision>\n\n")
 	sb.WriteString(fmt.Sprintf("**⚠️ 重要提醒**: position_size_usd 必须 ≤ 单币仓位上限（山寨%.0f U | BTC/ETH %.0f U），否则订单将被拒绝\n\n",
-		accountEquity*1.5, accountEquity*10))
+		accountEquity*20, accountEquity*20))
 	sb.WriteString("## 字段说明\n\n")
 	sb.WriteString("- `action`: open_long | open_short | close_long | close_short | update_stop_loss | update_take_profit | partial_close | hold | wait\n")
 	sb.WriteString("- 开仓时必填: leverage, position_size_usd, stop_loss, take_profit, risk_usd, reasoning\n")
@@ -728,6 +733,10 @@ func fixMissingQuotes(jsonStr string) string {
 	jsonStr = strings.ReplaceAll(jsonStr, "\u2018", "'")  // '
 	jsonStr = strings.ReplaceAll(jsonStr, "\u2019", "'")  // '
 
+	// ⚠️ 强制替换波浪号，防止验证器报错
+	// 即使 AI 在 reasoning 中输出了 "~45分"，这里也会把它变成 "约45分"，从而通过校验
+	jsonStr = strings.ReplaceAll(jsonStr, "~", "约")
+
 	// ⚠️ 替换全角括号、冒号、逗号（防止AI输出全角JSON字符）
 	jsonStr = strings.ReplaceAll(jsonStr, "［", "[") // U+FF3B 全角左方括号
 	jsonStr = strings.ReplaceAll(jsonStr, "］", "]") // U+FF3D 全角右方括号
@@ -870,10 +879,10 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 	if d.Action == "open_long" || d.Action == "open_short" {
 		// 根据币种使用配置的杠杆上限
 		maxLeverage := altcoinLeverage          // 山寨币使用配置的杠杆
-		maxPositionValue := accountEquity * 1.5 // 山寨币最多1.5倍账户净值
+		maxPositionValue := accountEquity * 20 // 山寨币最多20倍账户净值
 		if d.Symbol == "BTCUSDT" || d.Symbol == "ETHUSDT" {
 			maxLeverage = btcEthLeverage          // BTC和ETH使用配置的杠杆
-			maxPositionValue = accountEquity * 10 // BTC/ETH最多10倍账户净值
+			maxPositionValue = accountEquity * 20 // BTC/ETH最多20倍账户净值
 		}
 
 		// 杠杆验证：超限时拒绝决策（与 Prompt 表述一致）
@@ -897,22 +906,22 @@ func validateDecision(d *Decision, accountEquity float64, btcEthLeverage, altcoi
 		tolerance := maxPositionValue * 0.01 // 1%容差
 		if d.PositionSizeUSD > maxPositionValue+tolerance {
 			if d.Symbol == "BTCUSDT" || d.Symbol == "ETHUSDT" {
-				return fmt.Errorf("BTC/ETH单币种仓位价值不能超过%.0f USDT（10倍账户净值），实际: %.0f", maxPositionValue, d.PositionSizeUSD)
+				return fmt.Errorf("BTC/ETH单币种仓位价值不能超过%.0f USDT（20倍账户净值），实际: %.0f", maxPositionValue, d.PositionSizeUSD)
 			} else {
-				return fmt.Errorf("山寨币单币种仓位价值不能超过%.0f USDT（1.5倍账户净值），实际: %.0f", maxPositionValue, d.PositionSizeUSD)
+				return fmt.Errorf("山寨币单币种仓位价值不能超过%.0f USDT（20倍账户净值），实际: %.0f", maxPositionValue, d.PositionSizeUSD)
 			}
 		}
-		if d.StopLoss <= 0 || d.TakeProfit <= 0 {
-			return fmt.Errorf("止损和止盈必须大于0")
+		if d.StopLoss <= 0 {
+			return fmt.Errorf("止损必须大于0")
 		}
 
 		// 验证止损止盈的合理性
 		if d.Action == "open_long" {
-			if d.StopLoss >= d.TakeProfit {
+			if d.TakeProfit > 0 && d.StopLoss >= d.TakeProfit {
 				return fmt.Errorf("做多时止损价必须小于止盈价")
 			}
 		} else {
-			if d.StopLoss <= d.TakeProfit {
+			if d.TakeProfit > 0 && d.StopLoss <= d.TakeProfit {
 				return fmt.Errorf("做空时止损价必须大于止盈价")
 			}
 		}
