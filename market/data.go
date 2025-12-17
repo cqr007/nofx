@@ -591,7 +591,7 @@ func Format(data *Data, skipSymbolMention bool) string {
 	sb.WriteString(fmt.Sprintf("MA5: %s\n", safeFloatFmt(data.MA5)))
 	sb.WriteString(fmt.Sprintf("MA34: %s\n", safeFloatFmt(data.MA34)))
 	sb.WriteString(fmt.Sprintf("MA170: %s\n\n", safeFloatFmt(data.MA170)))
-	sb.WriteString(fmt.Sprintf("current_ema20 = %.3f, current_macd = %.3f, current_rsi (7 period) = %.3f\n\n",
+	sb.WriteString(fmt.Sprintf("current_ema20 = %.3f, current_rsi (7 period) = %.3f\n\n",
 		data.CurrentEMA20, data.CurrentMACD, data.CurrentRSI7))
 	// ================= [开始新增代码] =================
 	// 添加缠论 MACD 数据到 Prompt
@@ -646,9 +646,9 @@ func Format(data *Data, skipSymbolMention bool) string {
 		sb.WriteString(fmt.Sprintf("Current Volume: %.3f vs. Average Volume: %.3f\n\n",
 			data.LongerTermContext.CurrentVolume, data.LongerTermContext.AverageVolume))
 
-		if len(data.LongerTermContext.MACDValues) > 0 {
-			sb.WriteString(fmt.Sprintf("MACD indicators: %s\n\n", formatFloatSlice(data.LongerTermContext.MACDValues)))
-		}
+		// if len(data.LongerTermContext.MACDValues) > 0 {
+		//	sb.WriteString(fmt.Sprintf("MACD indicators: %s\n\n", formatFloatSlice(data.LongerTermContext.MACDValues)))
+		// }
 
 		if len(data.LongerTermContext.RSI14Values) > 0 {
 			sb.WriteString(fmt.Sprintf("RSI indicators (14‑Period): %s\n\n", formatFloatSlice(data.LongerTermContext.RSI14Values)))
@@ -782,9 +782,9 @@ func formatSeriesData(sb *strings.Builder, title string, data *SeriesFields) {
 		sb.WriteString(fmt.Sprintf("EMA indicators (20‑period): %s\n\n", formatFloatSlice(data.EMA20Values)))
 	}
 
-	if len(data.MACDValues) > 0 {
-		sb.WriteString(fmt.Sprintf("MACD indicators: %s\n\n", formatFloatSlice(data.MACDValues)))
-	}
+	// if len(data.MACDValues) > 0 {
+	//	sb.WriteString(fmt.Sprintf("MACD indicators: %s\n\n", formatFloatSlice(data.MACDValues)))
+	// }
 
 	if len(data.RSI7Values) > 0 {
 		sb.WriteString(fmt.Sprintf("RSI indicators (7‑Period): %s\n\n", formatFloatSlice(data.RSI7Values)))
