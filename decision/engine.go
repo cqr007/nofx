@@ -37,6 +37,9 @@ var (
 	reArrayOpenSpace = regexp.MustCompile(`^\[\s+\{`)
 	reInvisibleRunes = regexp.MustCompile("[\u200B\u200C\u200D\uFEFF]")
 
+    // 新增：用于匹配千位分隔符的正则 (例如 1,000)
+	reThousandSeparator = regexp.MustCompile(`(\d),(\d{3})`) // [!code ++]
+	
 	// 新增：XML标签提取（支持思维链中包含任何字符）
 	reReasoningTag = regexp.MustCompile(`(?s)<reasoning>(.*?)</reasoning>`)
 	reDecisionTag  = regexp.MustCompile(`(?s)<decision>(.*?)</decision>`)
@@ -754,6 +757,12 @@ func fixMissingQuotes(jsonStr string) string {
 
 	// ⚠️ 替换全角空格为半角空格（JSON中不应该有全角空格）
 	jsonStr = strings.ReplaceAll(jsonStr, "　", " ") // U+3000 全角空格
+
+	// ⚠️ 移除千位分隔符（如 98,000 -> 98000），防止 json.Unmarshal 失败
+	// 循环执行以处理多重分隔符的情况（如 1,234,567）
+	for reThousandSeparator.MatchString(jsonStr) {
+		jsonStr = reThousandSeparator.ReplaceAllString(jsonStr, "${1}${2}")
+	}
 
 	return jsonStr
 }
