@@ -83,6 +83,33 @@ func Get(symbol string) (*Data, error) {
 	currentPrice := klines15m[len(klines15m)-1].Close
 	currentEMA20 := calculateEMA(klines15m, 20)
 	currentMACD := calculateMACD(klines15m)
+	// =========================================================
+    // [新增代码] 缠论 MACD 指标计算 (34, 89, 13)
+    // 这里使用 klines15m (15分钟) 作为基础，您也可以改用 klines1h (1小时)
+    // =========================================================
+    clDif, clDea, clHist, clCrossState := CalculateChanLunMACDState(klines15m)
+    
+    // 生成人类可读的信号描述
+    var clSignalStr string
+    switch clCrossState {
+    case 1:
+        clSignalStr = "GOLDEN CROSS (Bullish) - 刚发生金叉 (DIF上穿DEA)"
+    case 2:
+        clSignalStr = "DEATH CROSS (Bearish) - 刚发生死叉 (DIF下穿DEA)"
+    default:
+        // 如果没有发生交叉，描述当前趋势状态
+        if clDif > clDea {
+             // 柱状图在缩短还是伸长?
+             if clHist > 0 && clHist < (clDif - clDea) { // 简化判断，实际可比较上一帧
+                 clSignalStr = "Bullish Trend (Weakening)" 
+             } else {
+                 clSignalStr = "Bullish Trend (MACD > Signal)"
+             }
+        } else {
+             clSignalStr = "Bearish Trend (MACD < Signal)"
+        }
+    }
+    // =========================================================
 	currentRSI7 := calculateRSI(klines15m, 7)
 	ma5 := calculateSMA(klines15m, 5)
 	ma34 := calculateSMA(klines15m, 34)
@@ -160,6 +187,11 @@ func Get(symbol string) (*Data, error) {
 		CurrentEMA20:      currentEMA20,
 		CurrentMACD:       currentMACD,
 		CurrentRSI7:       currentRSI7,
+		// [新增字段映射]
+        ChanLunMACD_DIF:   clDif,
+        ChanLunMACD_DEA:   clDea,
+        ChanLunMACD_Hist:  clHist,
+        ChanLunSignal:     clSignalStr,
 		MA5:               ma5,
 		MA34:              ma34,
 		MA170:             ma170,
