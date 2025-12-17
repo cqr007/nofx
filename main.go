@@ -248,7 +248,7 @@ func main() {
 
 	// 设置 token 过期时间
 	tokenExpirationStr, _ := database.GetSystemConfig("token_expiration_minutes")
-	tokenExpire := 1440
+	tokenExpire := 10080
 	if tokenExpirationStr != "" {
 		if v, err := strconv.Atoi(tokenExpirationStr); err == nil && v > 0 {
 			tokenExpire = v

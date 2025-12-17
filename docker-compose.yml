@@ -9,13 +9,16 @@ services:
   nofx:
     build:
       context: .
+      args:
+        http_proxy: http://192.168.1.2:1080
+        https_proxy: http://192.168.1.2:1080
       dockerfile: ./docker/Dockerfile.backend
-    container_name: nofx-trading
+    container_name: nofx-next-trading
     restart: unless-stopped
     stop_grace_period: 30s  # 允许应用有 30 秒时间优雅关闭
     # 后端不需要映射端口，nginx 通过内部网络访问 3000
     # ports:
-    #   - "${NOFX_BACKEND_PORT:-8080}:3000"
+    #   - "${NOFX_BACKEND_PORT:-7770}:3000"
     volumes:
       - ./config.json:/app/config.json:ro  # 基础配置文件（杠杆、风控参数等，只读）
       - ./config.db:/app/config.db  # 🔥 核心资产：系统配置数据库（交易员配置、API密钥、用户数据等）
@@ -28,9 +31,12 @@ services:
       - /etc/localtime:/etc/localtime:ro  # 同步宿主机时区
     environment:
       - TZ=${NOFX_TIMEZONE:-Asia/Shanghai}  # Set timezone
-      - AI_MAX_TOKENS=4000  # AI响应的最大token数（默认2000，建议4000-8000）
+      - AI_MAX_TOKENS=5000  # AI响应的最大token数（默认2000，建议4000-8000）
       - DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY}  # 数据库加密密钥
       - JWT_SECRET=${JWT_SECRET}  # JWT认证密钥
+      - HTTP_PROXY=http://192.168.1.3:1080
+      - HTTPS_PROXY=http://192.168.1.3:1080     
+      - NO_PROXY=localhost,127.0.0.1,0.0.0.0
     networks:
       - nofx-network
     healthcheck:
@@ -45,10 +51,10 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.frontend
-    container_name: nofx-frontend
+    container_name: nofx-next-frontend
     restart: unless-stopped
     ports:
-      - "${NOFX_FRONTEND_PORT:-3000}:80"
+      - "${NOFX_FRONTEND_PORT:-5550}:80"
     networks:
       - nofx-network
     depends_on:

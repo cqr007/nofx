@@ -368,3 +368,19 @@ func calculateBollingerSeries(klines []Kline, period int, stdDevMultiplier float
 	}
 	return allPercentBs, allBandwidths
 }
+
+    // calculateSMA 计算SMA (简单移动平均线)
+    func calculateSMA(klines []Kline, period int) float64 {
+	        if len(klines) < period {
+		            return 0
+	        }
+
+	        sum := 0.0
+	        // 取最后 period 个点
+	        start := len(klines) - period
+	        for i := start; i < len(klines); i++ {
+		    sum += klines[i].Close
+	        }
+
+	        return sum / float64(period)
+}
