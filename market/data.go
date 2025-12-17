@@ -84,6 +84,9 @@ func Get(symbol string) (*Data, error) {
 	currentEMA20 := calculateEMA(klines5m, 20)
 	currentMACD := calculateMACD(klines5m)
 	currentRSI7 := calculateRSI(klines5m, 7)
+	ma5 := calculateSMA(klines5m, 5)
+	ma34 := calculateSMA(klines5m, 34)
+	ma170 := calculateSMA(klines5m, 170)
 
 	// 计算价格变化百分比
 	// 1小时价格变化 = 12个5分钟K线前的价格
