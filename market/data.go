@@ -87,7 +87,7 @@ func Get(symbol string) (*Data, error) {
     // [新增代码] 缠论 MACD 指标计算 (34, 89, 13)
     // 这里使用 klines15m (15分钟) 作为基础，您也可以改用 klines1h (1小时)
     // =========================================================
-    clDif, clDea, clHist, clCrossState := CalculateChanLunMACDState(klines1h)
+    clDif, clDea, clHist, clCrossState := CalculateChanLunMACDState(klines15m)
     
     // 生成人类可读的信号描述
     var clSignalStr string
