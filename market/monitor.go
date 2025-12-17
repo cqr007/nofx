@@ -101,7 +101,7 @@ func (m *WSMonitor) initializeHistoricalData() error {
 			defer func() { <-semaphore }()
 
 			// 获取历史K线数据 - 5m
-			klines, err := apiClient.GetKlines(s, "5m", 200)
+			klines, err := apiClient.GetKlines(s, "5m", 1000)
 			if err != nil {
 				log.Printf("获取 %s 历史数据失败: %v", s, err)
 				return
@@ -116,7 +116,7 @@ func (m *WSMonitor) initializeHistoricalData() error {
 			}
 
 			// 获取历史K线数据 - 15m
-			klines15m, err := apiClient.GetKlines(s, "15m", 200)
+			klines15m, err := apiClient.GetKlines(s, "15m", 1000)
 			if err != nil {
 				log.Printf("获取 %s 历史数据失败: %v", s, err)
 				return
@@ -131,7 +131,7 @@ func (m *WSMonitor) initializeHistoricalData() error {
 			}
 
 			// 获取历史K线数据 - 1h
-			klines1h, err := apiClient.GetKlines(s, "1h", 200)
+			klines1h, err := apiClient.GetKlines(s, "1h", 1000)
 			if err != nil {
 				log.Printf("获取 %s 历史数据失败: %v", s, err)
 				return
@@ -146,7 +146,7 @@ func (m *WSMonitor) initializeHistoricalData() error {
 			}
 
 			// 获取历史K线数据 - 4h
-			klines4h, err := apiClient.GetKlines(s, "4h", 200)
+			klines4h, err := apiClient.GetKlines(s, "4h", 1000)
 			if err != nil {
 				log.Printf("获取 %s 历史数据失败: %v", s, err)
 				return
@@ -161,7 +161,7 @@ func (m *WSMonitor) initializeHistoricalData() error {
 			}
 
 			// 获取历史K线数据 - 1d
-			klines1d, err := apiClient.GetKlines(s, "1d", 200)
+			klines1d, err := apiClient.GetKlines(s, "1d", 1000)
 			if err != nil {
 				log.Printf("获取 %s 历史数据失败: %v", s, err)
 				return
@@ -294,7 +294,7 @@ func (m *WSMonitor) processKlineUpdate(symbol string, wsData KlineWSData, _time 
 			klines = append(klines, kline)
 
 			// 保持数据长度
-			if len(klines) > 200 {
+			if len(klines) > 1000 {
 				klines = klines[1:]
 			}
 		}
@@ -316,7 +316,7 @@ func (m *WSMonitor) GetCurrentKlines(symbol string, duration string) ([]Kline, e
 	if !exists {
 		// 如果Ws数据未初始化完成时,单独使用api获取 - 兼容性代码 (防止在未初始化完成是,已经有交易员运行)
 		apiClient := NewAPIClient()
-		klines, err := apiClient.GetKlines(symbol, duration, 200)
+		klines, err := apiClient.GetKlines(symbol, duration, 1000)
 		if err != nil {
 			return nil, fmt.Errorf("获取%v分钟K线失败: %v", duration, err)
 		}

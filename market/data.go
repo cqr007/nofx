@@ -592,7 +592,7 @@ func Format(data *Data, skipSymbolMention bool) string {
 	sb.WriteString(fmt.Sprintf("MA34: %s\n", safeFloatFmt(data.MA34)))
 	sb.WriteString(fmt.Sprintf("MA170: %s\n\n", safeFloatFmt(data.MA170)))
 	sb.WriteString(fmt.Sprintf("current_ema20 = %.3f, current_rsi (7 period) = %.3f\n\n",
-		data.CurrentEMA20, data.CurrentMACD, data.CurrentRSI7))
+		data.CurrentEMA20, data.CurrentRSI7))
 	// ================= [开始新增代码] =================
 	// 添加缠论 MACD 数据到 Prompt
 	sb.WriteString("Custom Indicator (ChanLun MACD 34/89/13):\n")
