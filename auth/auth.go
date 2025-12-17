@@ -17,7 +17,7 @@ import (
 var JWTSecret []byte
 
 // TokenExpireMinutes JWT 过期分钟数（可通过 SetTokenExpireMinutes 动态设置）
-var TokenExpireMinutes int = 1440
+var TokenExpireMinutes int = 10080
 
 // tokenBlacklist 用于登出后的token黑名单（仅内存，按过期时间清理）
 var tokenBlacklist = struct {
