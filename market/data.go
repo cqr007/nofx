@@ -79,14 +79,14 @@ func Get(symbol string) (*Data, error) {
 		return nil, fmt.Errorf("1小时K线数据为空")
 	}
 
-	// 计算当前指标 (基于5分钟最新数据)
-	currentPrice := klines5m[len(klines5m)-1].Close
-	currentEMA20 := calculateEMA(klines5m, 20)
-	currentMACD := calculateMACD(klines5m)
-	currentRSI7 := calculateRSI(klines5m, 7)
-	ma5 := calculateSMA(klines5m, 5)
-	ma34 := calculateSMA(klines5m, 34)
-	ma170 := calculateSMA(klines5m, 170)
+	// 计算当前指标 (基于15分钟最新数据)
+	currentPrice := klines15m[len(klines15m)-1].Close
+	currentEMA20 := calculateEMA(klines15m, 20)
+	currentMACD := calculateMACD(klines15m)
+	currentRSI7 := calculateRSI(klines15m, 7)
+	ma5 := calculateSMA(klines15m, 5)
+	ma34 := calculateSMA(klines15m, 34)
+	ma170 := calculateSMA(klines15m, 170)
 
 	// 计算价格变化百分比
 	// 1小时价格变化 = 12个5分钟K线前的价格
