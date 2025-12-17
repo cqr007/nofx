@@ -384,3 +384,102 @@ func calculateBollingerSeries(klines []Kline, period int, stdDevMultiplier float
 
 	        return sum / float64(period)
 }
+
+		// =============================================================================
+		// 缠论专用 MACD (ChanLun MACD)
+		// 参数: Fast=34, Slow=89, Signal=13 (注意: 信号线使用 SMA 而非 EMA)
+		// =============================================================================
+		
+		// CalculateChanLunMACDState 计算缠论MACD的状态（金叉/死叉）
+		// 返回值: 
+		// - macdLine: DIF (快线 - 慢线)
+		// - signalLine: DEA (DIF的SMA)
+		// - histogram: 柱状图
+		// - crossType: 0=无交叉, 1=金叉(Bullish), 2=死叉(Bearish)
+		func CalculateChanLunMACDState(klines []Kline) (macdLine, signalLine, histogram float64, crossType int) {
+			// 确保有足够的数据计算
+			// 需要足够的数据来预热 EMA (通常建议 3-4 倍周期长度)
+			if len(klines) < 100 { 
+				return 0, 0, 0, 0
+			}
+		
+			fastPeriod := 34
+			slowPeriod := 89
+			signalPeriod := 13
+		
+			// 1. 计算快线 EMA 34 序列
+			emaFast := calculateEMASeries(klines, fastPeriod)
+			// 2. 计算慢线 EMA 89 序列
+			emaSlow := calculateEMASeries(klines, slowPeriod)
+		
+			// 3. 计算 DIF (MACD Line) 序列
+			// 我们至少需要 signalPeriod 个点来计算最后的 SMA
+			dataLen := len(klines)
+			if len(emaFast) != dataLen || len(emaSlow) != dataLen {
+				return 0, 0, 0, 0
+			}
+		
+			difSeries := make([]float64, dataLen)
+			for i := 0; i < dataLen; i++ {
+				difSeries[i] = emaFast[i] - emaSlow[i]
+			}
+		
+			// 4. 计算 DEA (Signal Line) - 使用 SMA 算法 (这是该脚本的特殊之处)
+			// 我们只需要计算最后两个点的 DEA 来判断交叉
+			prevDea := calculateSMAFromSeries(difSeries[:dataLen-1], signalPeriod)
+			currDea := calculateSMAFromSeries(difSeries, signalPeriod)
+		
+			// 获取最后两个点的 DIF
+			prevDif := difSeries[dataLen-2]
+			currDif := difSeries[dataLen-1]
+		
+			// 5. 计算当前的柱状图
+			currHist := currDif - currDea
+		
+			// 6. 判断交叉
+			// 金叉: 上一刻 DIF < DEA 且 当前 DIF > DEA
+			if prevDif < prevDea && currDif > currDea {
+				crossType = 1 // 金叉
+			} else if prevDif > prevDea && currDif < currDea {
+				crossType = 2 // 死叉
+			} else {
+				crossType = 0 // 无新交叉
+			}
+		
+			return currDif, currDea, currHist, crossType
+		}
+		
+		// 辅助函数：计算 EMA 序列 (返回完整数组)
+		func calculateEMASeries(klines []Kline, period int) []float64 {
+			length := len(klines)
+			if length < period {
+				return make([]float64, length)
+			}
+			result := make([]float64, length)
+		
+			// 初始值使用 SMA
+			sum := 0.0
+			for i := 0; i < period; i++ {
+				sum += klines[i].Close
+			}
+			result[period-1] = sum / float64(period)
+		
+			multiplier := 2.0 / float64(period+1)
+			for i := period; i < length; i++ {
+				result[i] = (klines[i].Close-result[i-1])*multiplier + result[i-1]
+			}
+			return result
+		}
+		
+		// 辅助函数：根据 float64 数组计算最后一个点的 SMA
+		func calculateSMAFromSeries(data []float64, period int) float64 {
+			length := len(data)
+			if length < period {
+				return 0
+			}
+			sum := 0.0
+			for i := length - period; i < length; i++ {
+				sum += data[i]
+			}
+			return sum / float64(period)
+		}
