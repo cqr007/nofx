@@ -15,6 +15,10 @@ type Data struct {
 	MA5               float64
     MA34              float64
     MA170             float64
+	ChanLunMACD_DIF   float64 // 快线 - 慢线
+    ChanLunMACD_DEA   float64 // 信号线
+    ChanLunMACD_Hist  float64 // 柱状图
+    ChanLunSignal     string  // "Golden Cross (Bullish)", "Death Cross (Bearish)", "Neutral"
 	OpenInterest      *OIData
 	FundingRate       float64
 	IntradaySeries    *IntradayData
