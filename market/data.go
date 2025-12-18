@@ -858,6 +858,10 @@ func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline) (*Data,
 	symbol = Normalize(symbol)
 	current := primary[len(primary)-1]
 	currentPrice := current.Close
+
+	ma5 := calculateSMA(primary, 5)
+	ma34 := calculateSMA(primary, 34)
+	ma170 := calculateSMA(primary, 170)
 	
 	clDif, clDea, clHist, clCrossState := CalculateChanLunMACDState(primary)		
 	var clSignalStr string
