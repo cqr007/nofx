@@ -858,9 +858,21 @@ func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline) (*Data,
 	symbol = Normalize(symbol)
 	current := primary[len(primary)-1]
 	currentPrice := current.Close
-
-	clDif, clDea, clHist, clCrossState := CalculateChanLunMACDState(primary)
-    var clSignalStr string
+	
+	clDif, clDea, clHist, clCrossState := CalculateChanLunMACDState(primary)		
+	var clSignalStr string
+	switch clCrossState {
+	case 1:
+		clSignalStr = "GOLDEN CROSS (Bullish) - 刚发生金叉 (DIF上穿DEA)"
+	case 2:
+		clSignalStr = "DEATH CROSS (Bearish) - 刚发生死叉 (DIF下穿DEA)"
+	default:
+		if clDif > clDea {
+			clSignalStr = "Bullish Trend (MACD > Signal)"
+		} else {
+			clSignalStr = "Bearish Trend (MACD < Signal)"
+		}
+	}	
 
 	data := &Data{
 		Symbol:            symbol,
@@ -868,6 +880,13 @@ func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline) (*Data,
 		CurrentEMA20:      calculateEMA(primary, 20),
 		CurrentMACD:       calculateMACD(primary),
 		CurrentRSI7:       calculateRSI(primary, 7),
+		MA5:               ma5,
+		MA34:              ma34,
+		MA170:             ma170,
+		ChanLunMACD_DIF:   clDif,
+		ChanLunMACD_DEA:   clDea,
+		ChanLunMACD_Hist:  clHist,
+		ChanLunSignal:     clSignalStr,
 		PriceChange1h:     priceChangeFromSeries(primary, time.Hour),
 		PriceChange4h:     priceChangeFromSeries(primary, 4*time.Hour),
 		OpenInterest:      &OIData{Latest: 0, Average: 0},
