@@ -619,9 +619,9 @@ func Format(data *Data, skipSymbolMention bool) string {
 
 	sb.WriteString(fmt.Sprintf("Funding Rate: %.2e\n\n", data.FundingRate))
 
-	if data.IntradaySeries != nil {
-		formatSeriesData(&sb, "Intraday series (5‑minute intervals, oldest → latest):", &data.IntradaySeries.SeriesFields)
-	}
+	//if data.IntradaySeries != nil {
+		//formatSeriesData(&sb, "Intraday series (5‑minute intervals, oldest → latest):", &data.IntradaySeries.SeriesFields)
+	//}
 
 	if data.MidTermSeries15m != nil {
 		formatSeriesData(&sb, "Mid‑term series (15‑minute intervals, oldest → latest):", &data.MidTermSeries15m.SeriesFields)
