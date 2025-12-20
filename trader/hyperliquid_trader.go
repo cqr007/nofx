@@ -37,11 +37,10 @@ func NewHyperliquidTrader(privateKeyHex string, walletAddr string, testnet bool)
 	}
 
 	// 选择API URL
-	// apiURL := hyperliquid.MainnetAPIURL
-	// if testnet {
-	//	apiURL = hyperliquid.TestnetAPIURL
-	// }
-	apiURL := hyperliquid.TestnetAPIURL
+	apiURL := hyperliquid.MainnetAPIURL
+	if testnet {
+		apiURL = hyperliquid.TestnetAPIURL
+	}	
 	
 	// Security enhancement: Implement Agent Wallet best practices
 	// Reference: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/nonces-and-api-wallets
