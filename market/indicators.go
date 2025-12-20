@@ -367,23 +367,27 @@ func calculateBollingerSeries(klines []Kline, period int, stdDevMultiplier float
 		return allPercentBs[len(allPercentBs)-10:], allBandwidths[len(allBandwidths)-10:]
 	}
 	return allPercentBs, allBandwidths
-}
+}    
 
-    // calculateSMA 计算SMA (简单移动平均线)
-    func calculateSMA(klines []Kline, period int) float64 {
-	        if len(klines) < period {
-		            return 0
-	        }
-
-	        sum := 0.0
-	        // 取最后 period 个点
-	        start := len(klines) - period
-	        for i := start; i < len(klines); i++ {
-		    sum += klines[i].Close
-	        }
-
-	        return sum / float64(period)
-}
+	// [新增] 计算 SMA 序列
+	func calculateSMASeries(klines []Kline, period int) []float64 {
+			if len(klines) == 0 {
+					return []float64{}
+			}
+			smas := make([]float64, len(klines))
+			for i := range klines {
+					if i < period-1 {
+							smas[i] = 0 // 数据不足时补0
+							continue
+					}
+					var sum float64
+					for j := 0; j < period; j++ {
+							sum += klines[i-j].Close
+					}
+					smas[i] = sum / float64(period)
+			}
+			return smas
+	}
 
 		// =============================================================================
 		// 缠论专用 MACD (ChanLun MACD)

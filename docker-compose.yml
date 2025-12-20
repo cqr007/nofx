@@ -13,12 +13,12 @@ services:
         http_proxy: http://192.168.1.2:1080
         https_proxy: http://192.168.1.2:1080
       dockerfile: ./docker/Dockerfile.backend
-    container_name: nofx-next-trading
+    container_name: nofx-trading
     restart: unless-stopped
     stop_grace_period: 30s  # 允许应用有 30 秒时间优雅关闭
     # 后端不需要映射端口，nginx 通过内部网络访问 3000
     # ports:
-    #   - "${NOFX_BACKEND_PORT:-7770}:3000"
+    #   - "${NOFX_BACKEND_PORT:-7777}:3000"
     volumes:
       - ./config.json:/app/config.json:ro  # 基础配置文件（杠杆、风控参数等，只读）
       - ./config.db:/app/config.db  # 🔥 核心资产：系统配置数据库（交易员配置、API密钥、用户数据等）
@@ -51,10 +51,10 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.frontend
-    container_name: nofx-next-frontend
+    container_name: nofx-frontend
     restart: unless-stopped
     ports:
-      - "${NOFX_FRONTEND_PORT:-5550}:80"
+      - "${NOFX_FRONTEND_PORT:-5555}:80"
     networks:
       - nofx-network
     depends_on:
