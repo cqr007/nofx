@@ -221,21 +221,22 @@ type seriesResult struct {
 
 // calculateSeriesData 计算时间序列指标（5m/30m/1h 通用）
 func calculateSeriesData(klines []Kline) *seriesResult {
+	// 1. 初始化结果结构体
 	r := &seriesResult{
-		midPrices:   make([]float64, 0, 10),
-		ema20Values: make([]float64, 0, 10),
-		macdValues:  make([]float64, 0, 10),
-		rsi7Values:  make([]float64, 0, 10),
-		rsi14Values: make([]float64, 0, 10),
-		volume:      make([]float64, 0, 10),
-		ma5Values:   make([]float64, 0, 10),
-		ma34Values:  make([]float64, 0, 10),
-		ma170Values: make([]float64, 0, 10),
+		midPrices:           make([]float64, 0, 10),
+		ema20Values:         make([]float64, 0, 10),
+		macdValues:          make([]float64, 0, 10),
+		rsi7Values:          make([]float64, 0, 10),
+		rsi14Values:         make([]float64, 0, 10),
+		volume:              make([]float64, 0, 10),
+		ma5Values:           make([]float64, 0, 10),
+		ma34Values:          make([]float64, 0, 10),
+		ma170Values:         make([]float64, 0, 10),
 	}
-
-	ma5All := calculateSMASeries(klines, 5)
-	ma34All := calculateSMASeries(klines, 34)
-	ma170All := calculateSMASeries(klines, 170)
+	
+	ma5List := calculateSMASeries(klines, 5)
+	ma34List := calculateSMASeries(klines, 34)
+	ma170List := calculateSMASeries(klines, 170)
 
 	// 获取最近10个数据点
 	start := len(klines) - 10
@@ -243,6 +244,7 @@ func calculateSeriesData(klines []Kline) *seriesResult {
 		start = 0
 	}
 
+	// 3. 遍历填充最近 10 个点的数据
 	for i := start; i < len(klines); i++ {
 		r.midPrices = append(r.midPrices, klines[i].Close)
 		r.volume = append(r.volume, klines[i].Volume)
@@ -268,27 +270,33 @@ func calculateSeriesData(klines []Kline) *seriesResult {
 			rsi14 := calculateRSI(klines[:i+1], 14)
 			r.rsi14Values = append(r.rsi14Values, rsi14)
 		}
-
-		// [修改] 2. 直接从计算好的序列中取值，不再调用 calculateSMA
-		// 确保索引不越界 (通常 calculateSMASeries 返回长度等于 klines 长度)
-		if i < len(ma5All) {
-			r.ma5Values = append(r.ma5Values, ma5All[i])
+		
+		if i < len(ma5List) {
+			r.ma5Values = append(r.ma5Values, ma5List[i])
 		} else {
 			r.ma5Values = append(r.ma5Values, 0)
 		}
 
-		if i < len(ma34All) {
-			r.ma34Values = append(r.ma34Values, ma34All[i])
+		if i < len(ma34List) {
+			r.ma34Values = append(r.ma34Values, ma34List[i])
 		} else {
 			r.ma34Values = append(r.ma34Values, 0)
 		}
 
-		if i < len(ma170All) {
-			r.ma170Values = append(r.ma170Values, ma170All[i])
+		if i < len(ma170List) {
+			r.ma170Values = append(r.ma170Values, ma170List[i])
 		} else {
 			r.ma170Values = append(r.ma170Values, 0)
 		}
 	}
+
+	// 计算其他序列指标
+	r.atr14Values = calculateATRSeries(klines, 14)
+	r.er10Values = calculateERSeries(klines, 10)
+	r.bollingerPercentBs, r.bollingerBandwidths = calculateBollingerSeries(klines, 20, 2.0)
+
+	return r
+}
 
 	// 计算 ATR14 序列
 	r.atr14Values = calculateATRSeries(klines, 14)
