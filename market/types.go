@@ -64,6 +64,9 @@ type SeriesFields struct {
 	ER10Values          []float64 // Efficiency Ratio (10期) 序列
 	BollingerPercentBs  []float64 // 布林带 %B 序列
 	BollingerBandwidths []float64 // 布林带宽度序列
+	MA5Values   		[]float64 // MA5 序列
+	MA34Values  		[]float64 // MA34 序列
+	MA170Values 		[]float64 // MA170 序列
 }
 
 // IntradayData 日内数据(5分钟间隔)
