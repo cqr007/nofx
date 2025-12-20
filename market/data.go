@@ -290,14 +290,6 @@ func calculateSeriesData(klines []Kline) *seriesResult {
 		}
 	}
 
-	// 计算其他序列指标
-	r.atr14Values = calculateATRSeries(klines, 14)
-	r.er10Values = calculateERSeries(klines, 10)
-	r.bollingerPercentBs, r.bollingerBandwidths = calculateBollingerSeries(klines, 20, 2.0)
-
-	return r
-}
-
 	// 计算 ATR14 序列
 	r.atr14Values = calculateATRSeries(klines, 14)
 
