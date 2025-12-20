@@ -79,15 +79,15 @@ func Get(symbol string) (*Data, error) {
 		return nil, fmt.Errorf("1小时K线数据为空")
 	}
 
-	// 计算当前指标 (基于15分钟最新数据)
-	currentPrice := klines15m[len(klines15m)-1].Close
-	currentEMA20 := calculateEMA(klines15m, 20)
-	currentMACD := calculateMACD(klines15m)
+	// 计算当前指标 (基于5分钟最新数据)
+	currentPrice := klines15m[len(klines5m)-1].Close
+	currentEMA20 := calculateEMA(klines5m, 20)
+	currentMACD := calculateMACD(klines5m)
 	// =========================================================
     // [新增代码] 缠论 MACD 指标计算 (34, 89, 13)
-    // 这里使用 klines15m (15分钟) 作为基础，您也可以改用 klines1h (1小时)
+    // 这里使用 klines15m (5分钟) 作为基础，您也可以改用 klines1h (1小时)
     // =========================================================
-    clDif, clDea, clHist, clCrossState := CalculateChanLunMACDState(klines15m)
+    clDif, clDea, clHist, clCrossState := CalculateChanLunMACDState(klines5m)
     
     // 生成人类可读的信号描述
     var clSignalStr string
@@ -191,10 +191,7 @@ func Get(symbol string) (*Data, error) {
         ChanLunMACD_DIF:   clDif,
         ChanLunMACD_DEA:   clDea,
         ChanLunMACD_Hist:  clHist,
-        ChanLunSignal:     clSignalStr,
-		MA5:               ma5,
-		MA34:              ma34,
-		MA170:             ma170,
+        ChanLunSignal:     clSignalStr,		
 		OpenInterest:      oiData,
 		FundingRate:       fundingRate,
 		IntradaySeries:    intradayData,
@@ -587,10 +584,7 @@ func Format(data *Data, skipSymbolMention bool) string {
 	priceStr := formatPriceWithDynamicPrecision(data.CurrentPrice)
 	sb.WriteString(fmt.Sprintf("current_price = %s, price_change_1h = %.2f%%, price_change_4h = %.2f%%, price_change_24h = %.2f%%\n\n",
 		priceStr, data.PriceChange1h, data.PriceChange4h, data.PriceChange24h))
-	sb.WriteString("Moving Averages (Important for Strategy):\n")
-	sb.WriteString(fmt.Sprintf("MA5: %s\n", safeFloatFmt(data.MA5)))
-	sb.WriteString(fmt.Sprintf("MA34: %s\n", safeFloatFmt(data.MA34)))
-	sb.WriteString(fmt.Sprintf("MA170: %s\n\n", safeFloatFmt(data.MA170)))
+	sb.WriteString("Moving Averages (Important for Strategy):\n")	
 	sb.WriteString(fmt.Sprintf("current_ema20 = %.3f, current_rsi (7 period) = %.3f\n\n",
 		data.CurrentEMA20, data.CurrentRSI7))
 	// ================= [开始新增代码] =================
@@ -619,9 +613,9 @@ func Format(data *Data, skipSymbolMention bool) string {
 
 	sb.WriteString(fmt.Sprintf("Funding Rate: %.2e\n\n", data.FundingRate))
 
-	//if data.IntradaySeries != nil {
-		//formatSeriesData(&sb, "Intraday series (5‑minute intervals, oldest → latest):", &data.IntradaySeries.SeriesFields)
-	//}
+	if data.IntradaySeries != nil {
+		formatSeriesData(&sb, "Intraday series (5‑minute intervals, oldest → latest):", &data.IntradaySeries.SeriesFields)
+	}
 
 	if data.MidTermSeries15m != nil {
 		formatSeriesData(&sb, "Mid‑term series (15‑minute intervals, oldest → latest):", &data.MidTermSeries15m.SeriesFields)
@@ -858,10 +852,6 @@ func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline) (*Data,
 	symbol = Normalize(symbol)
 	current := primary[len(primary)-1]
 	currentPrice := current.Close
-
-	ma5 := calculateSMA(primary, 5)
-	ma34 := calculateSMA(primary, 34)
-	ma170 := calculateSMA(primary, 170)
 	
 	clDif, clDea, clHist, clCrossState := CalculateChanLunMACDState(primary)		
 	var clSignalStr string
@@ -883,10 +873,7 @@ func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline) (*Data,
 		CurrentPrice:      currentPrice,
 		CurrentEMA20:      calculateEMA(primary, 20),
 		CurrentMACD:       calculateMACD(primary),
-		CurrentRSI7:       calculateRSI(primary, 7),
-		MA5:               ma5,
-		MA34:              ma34,
-		MA170:             ma170,
+		CurrentRSI7:       calculateRSI(primary, 7),		
 		ChanLunMACD_DIF:   clDif,
 		ChanLunMACD_DEA:   clDea,
 		ChanLunMACD_Hist:  clHist,
