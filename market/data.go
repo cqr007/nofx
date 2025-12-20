@@ -233,6 +233,10 @@ func calculateSeriesData(klines []Kline) *seriesResult {
 		ma170Values: make([]float64, 0, 10),
 	}
 
+	ma5All := calculateSMASeries(klines, 5)
+	ma34All := calculateSMASeries(klines, 34)
+	ma170All := calculateSMASeries(klines, 170)
+
 	// 获取最近10个数据点
 	start := len(klines) - 10
 	if start < 0 {
@@ -265,28 +269,26 @@ func calculateSeriesData(klines []Kline) *seriesResult {
 			r.rsi14Values = append(r.rsi14Values, rsi14)
 		}
 
-		// [新增] 在循环内部计算每个点的 MA 值
-		if i >= 4 { // MA5 需要至少 5 个点 (索引从0开始，所以是 i>=4)
-			ma5 := calculateSMA(klines[:i+1], 5)
-			r.ma5Values = append(r.ma5Values, ma5)
+		// [修改] 2. 直接从计算好的序列中取值，不再调用 calculateSMA
+		// 确保索引不越界 (通常 calculateSMASeries 返回长度等于 klines 长度)
+		if i < len(ma5All) {
+			r.ma5Values = append(r.ma5Values, ma5All[i])
 		} else {
-			r.ma5Values = append(r.ma5Values, 0) // 数据不足补0
+			r.ma5Values = append(r.ma5Values, 0)
 		}
 
-		if i >= 33 { // MA34
-			ma34 := calculateSMA(klines[:i+1], 34)
-			r.ma34Values = append(r.ma34Values, ma34)
+		if i < len(ma34All) {
+			r.ma34Values = append(r.ma34Values, ma34All[i])
 		} else {
 			r.ma34Values = append(r.ma34Values, 0)
 		}
 
-		if i >= 169 { // MA170
-			ma170 := calculateSMA(klines[:i+1], 170)
-			r.ma170Values = append(r.ma170Values, ma170)
+		if i < len(ma170All) {
+			r.ma170Values = append(r.ma170Values, ma170All[i])
 		} else {
 			r.ma170Values = append(r.ma170Values, 0)
-		}	
-	}	
+		}
+	}
 
 	// 计算 ATR14 序列
 	r.atr14Values = calculateATRSeries(klines, 14)
