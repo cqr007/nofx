@@ -11,10 +11,7 @@ type Data struct {
 	PriceChange24h    float64 // 24小时价格变化百分比
 	CurrentEMA20      float64
 	CurrentMACD       float64
-	CurrentRSI7       float64
-	MA5               float64
-    MA34              float64
-    MA170             float64
+	CurrentRSI7       float64	
 	ChanLunMACD_DIF   float64 // 快线 - 慢线
     ChanLunMACD_DEA   float64 // 信号线
     ChanLunMACD_Hist  float64 // 柱状图
