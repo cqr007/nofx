@@ -82,6 +82,8 @@ func Get(symbol string) (*Data, error) {
 	currentPrice := klines5m[len(klines5m)-1].Close 
 	currentEMA20 := calculateEMA(klines5m, 20)
 	currentMACD := calculateMACD(klines5m)
+	currentRSI7 := calculateRSI(klines30m, 7) 
+	
 	// =========================================================
     // [新增代码] 缠论 MACD 指标计算 (34, 89, 13)
     // 这里使用 klines5m 作为基础
@@ -108,12 +110,7 @@ func Get(symbol string) (*Data, error) {
              clSignalStr = "Bearish Trend (MACD < Signal)"
         }
     }
-    // =========================================================
-	currentRSI7 := calculateRSI(klines30m, 7) // [修改] klines15m -> klines30m
-	ma5 := calculateSMA(klines30m, 5) // [修改] klines15m -> klines30m
-	ma34 := calculateSMA(klines30m, 34) // [修改] klines15m -> klines30m
-	ma170 := calculateSMA(klines30m, 170) // [修改] klines15m -> klines30m
-
+   
 	// 计算价格变化百分比
 	// 1小时价格变化 = 12个5分钟K线前的价格
 	priceChange1h := 0.0
