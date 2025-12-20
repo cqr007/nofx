@@ -218,6 +218,9 @@ type seriesResult struct {
 	er10Values          []float64
 	bollingerPercentBs  []float64
 	bollingerBandwidths []float64
+	ma5Values           []float64
+	ma34Values          []float64
+	ma170Values         []float64
 }
 
 // calculateSeriesData 计算时间序列指标（5m/15m/1h 通用）
@@ -229,6 +232,9 @@ func calculateSeriesData(klines []Kline) *seriesResult {
 		rsi7Values:  make([]float64, 0, 10),
 		rsi14Values: make([]float64, 0, 10),
 		volume:      make([]float64, 0, 10),
+		ma5Values:   make([]float64, 0, 10),
+		ma34Values:  make([]float64, 0, 10),
+		ma170Values: make([]float64, 0, 10),
 	}
 
 	// 获取最近10个数据点
@@ -262,7 +268,29 @@ func calculateSeriesData(klines []Kline) *seriesResult {
 			rsi14 := calculateRSI(klines[:i+1], 14)
 			r.rsi14Values = append(r.rsi14Values, rsi14)
 		}
-	}
+
+		// [新增] 在循环内部计算每个点的 MA 值
+		if i >= 4 { // MA5 需要至少 5 个点 (索引从0开始，所以是 i>=4)
+			ma5 := calculateSMA(klines[:i+1], 5)
+			r.ma5Values = append(r.ma5Values, ma5)
+		} else {
+			r.ma5Values = append(r.ma5Values, 0) // 数据不足补0
+		}
+
+		if i >= 33 { // MA34
+			ma34 := calculateSMA(klines[:i+1], 34)
+			r.ma34Values = append(r.ma34Values, ma34)
+		} else {
+			r.ma34Values = append(r.ma34Values, 0)
+		}
+
+		if i >= 169 { // MA170
+			ma170 := calculateSMA(klines[:i+1], 170)
+			r.ma170Values = append(r.ma170Values, ma170)
+		} else {
+			r.ma170Values = append(r.ma170Values, 0)
+		}	
+	}	
 
 	// 计算 ATR14 序列
 	r.atr14Values = calculateATRSeries(klines, 14)
@@ -291,6 +319,9 @@ func calculateIntradaySeries(klines []Kline) *IntradayData {
 			ER10Values:          r.er10Values,
 			BollingerPercentBs:  r.bollingerPercentBs,
 			BollingerBandwidths: r.bollingerBandwidths,
+			MA5Values:           r.ma5Values,
+			MA34Values:          r.ma34Values,
+			MA170Values:         r.ma170Values,
 		},
 	}
 }
@@ -310,6 +341,9 @@ func calculateMidTermSeries15m(klines []Kline) *MidTermData15m {
 			ER10Values:          r.er10Values,
 			BollingerPercentBs:  r.bollingerPercentBs,
 			BollingerBandwidths: r.bollingerBandwidths,
+			MA5Values:           r.ma5Values,
+			MA34Values:          r.ma34Values,
+			MA170Values:         r.ma170Values,
 		},
 	}
 }
@@ -329,6 +363,9 @@ func calculateMidTermSeries1h(klines []Kline) *MidTermData1h {
 			ER10Values:          r.er10Values,
 			BollingerPercentBs:  r.bollingerPercentBs,
 			BollingerBandwidths: r.bollingerBandwidths,
+			MA5Values:           r.ma5Values,
+			MA34Values:          r.ma34Values,
+			MA170Values:         r.ma170Values,
 		},
 	}
 }
@@ -774,6 +811,17 @@ func formatSeriesData(sb *strings.Builder, title string, data *SeriesFields) {
 
 	if len(data.EMA20Values) > 0 {
 		sb.WriteString(fmt.Sprintf("EMA indicators (20‑period): %s\n\n", formatFloatSlice(data.EMA20Values)))
+	}
+
+	// [新增] 添加 MA 序列输出
+	if len(data.MA5Values) > 0 {
+		sb.WriteString(fmt.Sprintf("MA5: %s\n\n", formatFloatSlice(data.MA5Values)))
+	}
+	if len(data.MA34Values) > 0 {
+		sb.WriteString(fmt.Sprintf("MA34: %s\n\n", formatFloatSlice(data.MA34Values)))
+	}
+	if len(data.MA170Values) > 0 {
+		sb.WriteString(fmt.Sprintf("MA170: %s\n\n", formatFloatSlice(data.MA170Values)))
 	}
 
 	// if len(data.MACDValues) > 0 {
