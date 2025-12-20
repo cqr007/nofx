@@ -31,7 +31,7 @@ const (
 
 // Get 获取指定代币的市场数据
 func Get(symbol string) (*Data, error) {
-	var klines5m, klines15m, klines1h, klines4h []Kline
+	var klines5m, klines30m, klines1h, klines4h []Kline // [修改] klines15m -> klines30m
 	var err error
 	// 标准化symbol
 	symbol = Normalize(symbol)
@@ -47,10 +47,10 @@ func Get(symbol string) (*Data, error) {
 		return nil, fmt.Errorf("%s data is stale, possible cache failure", symbol)
 	}
 
-	// 获取15分钟K线数据 (缓存中约100根)
-	klines15m, err = WSMonitorCli.GetCurrentKlines(symbol, "15m")
+	// [修改] 获取30分钟K线数据 (原为15分钟)
+	klines30m, err = WSMonitorCli.GetCurrentKlines(symbol, "30m")
 	if err != nil {
-		return nil, fmt.Errorf("获取15分钟K线失败: %v", err)
+		return nil, fmt.Errorf("获取30分钟K线失败: %v", err)
 	}
 
 	// 获取1小时K线数据 (缓存中约100根)
@@ -72,22 +72,23 @@ func Get(symbol string) (*Data, error) {
 	if len(klines4h) == 0 {
 		return nil, fmt.Errorf("4小时K线数据为空")
 	}
-	if len(klines15m) == 0 {
-		return nil, fmt.Errorf("15分钟K线数据为空")
+	if len(klines30m) == 0 { // [修改] 检查30m数据
+		return nil, fmt.Errorf("30分钟K线数据为空")
 	}
 	if len(klines1h) == 0 {
 		return nil, fmt.Errorf("1小时K线数据为空")
 	}
-
-	// 计算当前指标 (基于15分钟最新数据)
-	currentPrice := klines15m[len(klines15m)-1].Close
-	currentEMA20 := calculateEMA(klines15m, 20)
-	currentMACD := calculateMACD(klines15m)
+	
+	currentPrice := klines5m[len(klines5m)-1].Close 
+	currentEMA20 := calculateEMA(klines5m, 20)
+	currentMACD := calculateMACD(klines5m)
+	currentRSI7 := calculateRSI(klines30m, 7) 
+	
 	// =========================================================
     // [新增代码] 缠论 MACD 指标计算 (34, 89, 13)
-    // 这里使用 klines15m (15分钟) 作为基础，您也可以改用 klines1h (1小时)
+    // 这里使用 klines5m 作为基础
     // =========================================================
-    clDif, clDea, clHist, clCrossState := CalculateChanLunMACDState(klines15m)
+    clDif, clDea, clHist, clCrossState := CalculateChanLunMACDState(klines5m)
     
     // 生成人类可读的信号描述
     var clSignalStr string
@@ -109,12 +110,7 @@ func Get(symbol string) (*Data, error) {
              clSignalStr = "Bearish Trend (MACD < Signal)"
         }
     }
-    // =========================================================
-	currentRSI7 := calculateRSI(klines15m, 7)
-	ma5 := calculateSMA(klines15m, 5)
-	ma34 := calculateSMA(klines15m, 34)
-	ma170 := calculateSMA(klines15m, 170)
-
+   
 	// 计算价格变化百分比
 	// 1小时价格变化 = 12个5分钟K线前的价格
 	priceChange1h := 0.0
@@ -162,8 +158,8 @@ func Get(symbol string) (*Data, error) {
 	// 计算日内系列数据
 	intradayData := calculateIntradaySeries(klines5m)
 
-	// 计算中期系列数据 - 15分钟
-	midTermData15m := calculateMidTermSeries15m(klines15m)
+	// [修改] 计算中期系列数据 - 30分钟 (原为15分钟)
+	midTermData30m := calculateMidTermSeries30m(klines30m)
 
 	// 计算中期系列数据 - 1小时
 	midTermData1h := calculateMidTermSeries1h(klines1h)
@@ -191,14 +187,11 @@ func Get(symbol string) (*Data, error) {
         ChanLunMACD_DIF:   clDif,
         ChanLunMACD_DEA:   clDea,
         ChanLunMACD_Hist:  clHist,
-        ChanLunSignal:     clSignalStr,
-		MA5:               ma5,
-		MA34:              ma34,
-		MA170:             ma170,
+        ChanLunSignal:     clSignalStr,		
 		OpenInterest:      oiData,
 		FundingRate:       fundingRate,
 		IntradaySeries:    intradayData,
-		MidTermSeries15m:  midTermData15m,
+		MidTermSeries30m:  midTermData30m, // [修改] 赋值给新字段
 		MidTermSeries1h:   midTermData1h,
 		LongerTermContext: longerTermData,
 		DailyContext:      dailyData,
@@ -206,7 +199,7 @@ func Get(symbol string) (*Data, error) {
 }
 
 // =============================================================================
-// 时间序列指标计算（5m/15m/1h 通用）
+// 时间序列指标计算（5m/30m/1h 通用）
 // =============================================================================
 
 // seriesResult 内部计算结果，用于填充各周期数据结构
@@ -221,18 +214,29 @@ type seriesResult struct {
 	er10Values          []float64
 	bollingerPercentBs  []float64
 	bollingerBandwidths []float64
+	ma5Values           []float64
+	ma34Values          []float64
+	ma170Values         []float64
 }
 
-// calculateSeriesData 计算时间序列指标（5m/15m/1h 通用）
+// calculateSeriesData 计算时间序列指标（5m/30m/1h 通用）
 func calculateSeriesData(klines []Kline) *seriesResult {
+	// 1. 初始化结果结构体
 	r := &seriesResult{
-		midPrices:   make([]float64, 0, 10),
-		ema20Values: make([]float64, 0, 10),
-		macdValues:  make([]float64, 0, 10),
-		rsi7Values:  make([]float64, 0, 10),
-		rsi14Values: make([]float64, 0, 10),
-		volume:      make([]float64, 0, 10),
+		midPrices:           make([]float64, 0, 10),
+		ema20Values:         make([]float64, 0, 10),
+		macdValues:          make([]float64, 0, 10),
+		rsi7Values:          make([]float64, 0, 10),
+		rsi14Values:         make([]float64, 0, 10),
+		volume:              make([]float64, 0, 10),
+		ma5Values:           make([]float64, 0, 10),
+		ma34Values:          make([]float64, 0, 10),
+		ma170Values:         make([]float64, 0, 10),
 	}
+	
+	ma5List := calculateSMASeries(klines, 5)
+	ma34List := calculateSMASeries(klines, 34)
+	ma170List := calculateSMASeries(klines, 170)
 
 	// 获取最近10个数据点
 	start := len(klines) - 10
@@ -240,6 +244,7 @@ func calculateSeriesData(klines []Kline) *seriesResult {
 		start = 0
 	}
 
+	// 3. 遍历填充最近 10 个点的数据
 	for i := start; i < len(klines); i++ {
 		r.midPrices = append(r.midPrices, klines[i].Close)
 		r.volume = append(r.volume, klines[i].Volume)
@@ -264,6 +269,24 @@ func calculateSeriesData(klines []Kline) *seriesResult {
 		if i >= 14 {
 			rsi14 := calculateRSI(klines[:i+1], 14)
 			r.rsi14Values = append(r.rsi14Values, rsi14)
+		}
+		
+		if i < len(ma5List) {
+			r.ma5Values = append(r.ma5Values, ma5List[i])
+		} else {
+			r.ma5Values = append(r.ma5Values, 0)
+		}
+
+		if i < len(ma34List) {
+			r.ma34Values = append(r.ma34Values, ma34List[i])
+		} else {
+			r.ma34Values = append(r.ma34Values, 0)
+		}
+
+		if i < len(ma170List) {
+			r.ma170Values = append(r.ma170Values, ma170List[i])
+		} else {
+			r.ma170Values = append(r.ma170Values, 0)
 		}
 	}
 
@@ -294,14 +317,17 @@ func calculateIntradaySeries(klines []Kline) *IntradayData {
 			ER10Values:          r.er10Values,
 			BollingerPercentBs:  r.bollingerPercentBs,
 			BollingerBandwidths: r.bollingerBandwidths,
+			MA5Values:           r.ma5Values,
+			MA34Values:          r.ma34Values,
+			MA170Values:         r.ma170Values,
 		},
 	}
 }
 
-// calculateMidTermSeries15m 计算15分钟中期系列数据
-func calculateMidTermSeries15m(klines []Kline) *MidTermData15m {
+// [修改] calculateMidTermSeries30m 计算30分钟中期系列数据 (原为15m)
+func calculateMidTermSeries30m(klines []Kline) *MidTermData30m {
 	r := calculateSeriesData(klines)
-	return &MidTermData15m{
+	return &MidTermData30m{
 		SeriesFields: SeriesFields{
 			MidPrices:           r.midPrices,
 			EMA20Values:         r.ema20Values,
@@ -313,6 +339,9 @@ func calculateMidTermSeries15m(klines []Kline) *MidTermData15m {
 			ER10Values:          r.er10Values,
 			BollingerPercentBs:  r.bollingerPercentBs,
 			BollingerBandwidths: r.bollingerBandwidths,
+			MA5Values:           r.ma5Values,
+			MA34Values:          r.ma34Values,
+			MA170Values:         r.ma170Values,
 		},
 	}
 }
@@ -332,6 +361,9 @@ func calculateMidTermSeries1h(klines []Kline) *MidTermData1h {
 			ER10Values:          r.er10Values,
 			BollingerPercentBs:  r.bollingerPercentBs,
 			BollingerBandwidths: r.bollingerBandwidths,
+			MA5Values:           r.ma5Values,
+			MA34Values:          r.ma34Values,
+			MA170Values:         r.ma170Values,
 		},
 	}
 }
@@ -587,10 +619,7 @@ func Format(data *Data, skipSymbolMention bool) string {
 	priceStr := formatPriceWithDynamicPrecision(data.CurrentPrice)
 	sb.WriteString(fmt.Sprintf("current_price = %s, price_change_1h = %.2f%%, price_change_4h = %.2f%%, price_change_24h = %.2f%%\n\n",
 		priceStr, data.PriceChange1h, data.PriceChange4h, data.PriceChange24h))
-	sb.WriteString("Moving Averages (Important for Strategy):\n")
-	sb.WriteString(fmt.Sprintf("MA5: %s\n", safeFloatFmt(data.MA5)))
-	sb.WriteString(fmt.Sprintf("MA34: %s\n", safeFloatFmt(data.MA34)))
-	sb.WriteString(fmt.Sprintf("MA170: %s\n\n", safeFloatFmt(data.MA170)))
+	sb.WriteString("Moving Averages (Important for Strategy):\n")	
 	sb.WriteString(fmt.Sprintf("current_ema20 = %.3f, current_rsi (7 period) = %.3f\n\n",
 		data.CurrentEMA20, data.CurrentRSI7))
 	// ================= [开始新增代码] =================
@@ -619,12 +648,13 @@ func Format(data *Data, skipSymbolMention bool) string {
 
 	sb.WriteString(fmt.Sprintf("Funding Rate: %.2e\n\n", data.FundingRate))
 
-	//if data.IntradaySeries != nil {
-		//formatSeriesData(&sb, "Intraday series (5‑minute intervals, oldest → latest):", &data.IntradaySeries.SeriesFields)
-	//}
+	if data.IntradaySeries != nil {
+		formatSeriesData(&sb, "Intraday series (5‑minute intervals, oldest → latest):", &data.IntradaySeries.SeriesFields)
+	}
 
-	if data.MidTermSeries15m != nil {
-		formatSeriesData(&sb, "Mid‑term series (15‑minute intervals, oldest → latest):", &data.MidTermSeries15m.SeriesFields)
+	// [修改] 将 15分钟 改为 30分钟
+	if data.MidTermSeries30m != nil {
+		formatSeriesData(&sb, "Mid‑term series (30‑minute intervals, oldest → latest):", &data.MidTermSeries30m.SeriesFields)
 	}
 
 	if data.MidTermSeries1h != nil {
@@ -695,7 +725,7 @@ func Format(data *Data, skipSymbolMention bool) string {
 			start = 0
 		}
 		for i := start; i < len(data.DailyContext.Dates); i++ {
-			sb.WriteString(fmt.Sprintf("  %s: O=%.2f H=%.2f L=%.2f C=%.2f\n",
+			sb.WriteString(fmt.Sprintf("  %s: O=%.2f H=%.2f L=%.2f C=%.2f\n",
 				data.DailyContext.Dates[i],
 				data.DailyContext.OpenPrices[i],
 				data.DailyContext.HighPrices[i],
@@ -782,6 +812,18 @@ func formatSeriesData(sb *strings.Builder, title string, data *SeriesFields) {
 		sb.WriteString(fmt.Sprintf("EMA indicators (20‑period): %s\n\n", formatFloatSlice(data.EMA20Values)))
 	}
 
+	// [新增] 添加 MA 序列输出
+	if len(data.MA5Values) > 0 {
+		sb.WriteString(fmt.Sprintf("MA5: %s\n\n", formatFloatSlice(data.MA5Values)))
+	}
+	if len(data.MA34Values) > 0 {
+		sb.WriteString(fmt.Sprintf("MA34: %s\n\n", formatFloatSlice(data.MA34Values)))
+	}
+	if len(data.MA170Values) > 0 {
+		sb.WriteString(fmt.Sprintf("MA170: %s\n\n", formatFloatSlice(data.MA170Values)))
+	}
+
+	// ... (MACD, RSI, Volume 等其他输出保持不变) ...
 	// if len(data.MACDValues) > 0 {
 	//	sb.WriteString(fmt.Sprintf("MACD indicators: %s\n\n", formatFloatSlice(data.MACDValues)))
 	// }
@@ -858,10 +900,6 @@ func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline) (*Data,
 	symbol = Normalize(symbol)
 	current := primary[len(primary)-1]
 	currentPrice := current.Close
-
-	ma5 := calculateSMA(primary, 5)
-	ma34 := calculateSMA(primary, 34)
-	ma170 := calculateSMA(primary, 170)
 	
 	clDif, clDea, clHist, clCrossState := CalculateChanLunMACDState(primary)		
 	var clSignalStr string
@@ -883,10 +921,7 @@ func BuildDataFromKlines(symbol string, primary []Kline, longer []Kline) (*Data,
 		CurrentPrice:      currentPrice,
 		CurrentEMA20:      calculateEMA(primary, 20),
 		CurrentMACD:       calculateMACD(primary),
-		CurrentRSI7:       calculateRSI(primary, 7),
-		MA5:               ma5,
-		MA34:              ma34,
-		MA170:             ma170,
+		CurrentRSI7:       calculateRSI(primary, 7),		
 		ChanLunMACD_DIF:   clDif,
 		ChanLunMACD_DEA:   clDea,
 		ChanLunMACD_Hist:  clHist,
@@ -969,8 +1004,8 @@ func isStaleData(klines []Kline, symbol string) bool {
     }
     // safeFloatFmt 安全格式化浮点数，处理 NaN 和 Inf
     func safeFloatFmt(v float64) string {
-	    if math.IsNaN(v) || math.IsInf(v, 0) {
-		    return "0.0000" // 遇到异常值返回 0
-	    }
-	    return fmt.Sprintf("%.4f", v)
+        if math.IsNaN(v) || math.IsInf(v, 0) {
+            return "0.0000" // 遇到异常值返回 0
+        }
+        return fmt.Sprintf("%.4f", v)
     }

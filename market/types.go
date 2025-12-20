@@ -11,10 +11,7 @@ type Data struct {
 	PriceChange24h    float64 // 24小时价格变化百分比
 	CurrentEMA20      float64
 	CurrentMACD       float64
-	CurrentRSI7       float64
-	MA5               float64
-    MA34              float64
-    MA170             float64
+	CurrentRSI7       float64	
 	ChanLunMACD_DIF   float64 // 快线 - 慢线
     ChanLunMACD_DEA   float64 // 信号线
     ChanLunMACD_Hist  float64 // 柱状图
@@ -22,7 +19,7 @@ type Data struct {
 	OpenInterest      *OIData
 	FundingRate       float64
 	IntradaySeries    *IntradayData
-	MidTermSeries15m  *MidTermData15m
+	MidTermSeries30m  *MidTermData30m
 	MidTermSeries1h   *MidTermData1h
 	LongerTermContext *LongerTermData
 	DailyContext      *DailyData
@@ -67,6 +64,9 @@ type SeriesFields struct {
 	ER10Values          []float64 // Efficiency Ratio (10期) 序列
 	BollingerPercentBs  []float64 // 布林带 %B 序列
 	BollingerBandwidths []float64 // 布林带宽度序列
+	MA5Values   		[]float64 // MA5 序列
+	MA34Values  		[]float64 // MA34 序列
+	MA170Values 		[]float64 // MA170 序列
 }
 
 // IntradayData 日内数据(5分钟间隔)
@@ -74,8 +74,8 @@ type IntradayData struct {
 	SeriesFields // 嵌入共享字段
 }
 
-// MidTermData15m 中期数据(15分钟间隔)
-type MidTermData15m struct {
+// MidTermData30m 中期数据(30分钟间隔)
+type MidTermData30m struct {
 	SeriesFields // 嵌入共享字段
 }
 
@@ -148,7 +148,7 @@ type SymbolFeatures struct {
 	Symbol           string    `json:"symbol"`
 	Timestamp        time.Time `json:"timestamp"`
 	Price            float64   `json:"price"`
-	PriceChange15Min float64   `json:"price_change_15min"`
+	PriceChange30Min float64   `json:"price_change_30min"`
 	PriceChange1H    float64   `json:"price_change_1h"`
 	PriceChange4H    float64   `json:"price_change_4h"`
 	Volume           float64   `json:"volume"`
@@ -182,7 +182,7 @@ type Config struct {
 
 type AlertThresholds struct {
 	VolumeSpike      float64 `json:"volume_spike"`
-	PriceChange15Min float64 `json:"price_change_15min"`
+	PriceChange30Min float64 `json:"price_change_30min"`
 	VolumeTrend      float64 `json:"volume_trend"`
 	RSIOverbought    float64 `json:"rsi_overbought"`
 	RSIOversold      float64 `json:"rsi_oversold"`
@@ -197,7 +197,7 @@ type CleanupConfig struct {
 var config = Config{
 	AlertThresholds: AlertThresholds{
 		VolumeSpike:      3.0,
-		PriceChange15Min: 0.05,
+		PriceChange30Min: 0.05,
 		VolumeTrend:      2.0,
 		RSIOverbought:    70,
 		RSIOversold:      30,
