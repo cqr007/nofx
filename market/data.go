@@ -636,7 +636,7 @@ func Format(data *Data, skipSymbolMention bool) string {
 	if data.LongerTermContext != nil {
 		formatSeriesData(&sb, "Longer‑term series (4‑hour intervals, oldest → latest):", &data.LongerTermContext.SeriesFields)
 	}
-
+	
 	if data.DailyContext != nil {
 		sb.WriteString("\nDaily context (last 7 days):\n\n")
 
