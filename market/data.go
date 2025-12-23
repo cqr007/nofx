@@ -370,10 +370,25 @@ func calculateMidTermSeries1h(klines []Kline) *MidTermData1h {
 
 // calculateLongerTermData 计算长期数据
 func calculateLongerTermData(klines []Kline) *LongerTermData {
-	data := &LongerTermData{
-		MACDValues:  make([]float64, 0, 10),
-		RSI14Values: make([]float64, 0, 10),
-	}
+	r := calculateSeriesData(klines)
+	return &LongerTermData{
+		SeriesFields: SeriesFields{
+			MidPrices:           r.midPrices,
+			EMA20Values:         r.ema20Values,
+			MACDValues:          r.macdValues,
+			RSI7Values:          r.rsi7Values,
+			RSI14Values:         r.rsi14Values,
+			Volume:              r.volume,
+			ATR14Values:         r.atr14Values,
+			ER10Values:          r.er10Values,
+			BollingerPercentBs:  r.bollingerPercentBs,
+			BollingerBandwidths: r.bollingerBandwidths,
+			MA5Values:           r.ma5Values,
+			MA34Values:          r.ma34Values,
+			MA170Values:         r.ma170Values,
+	     },
+	  }
+   }
 
 	// 计算EMA
 	data.EMA20 = calculateEMA(klines, 20)
@@ -648,21 +663,21 @@ func Format(data *Data, skipSymbolMention bool) string {
 
 	sb.WriteString(fmt.Sprintf("Funding Rate: %.2e\n\n", data.FundingRate))
 
-	if data.IntradaySeries != nil {
-		formatSeriesData(&sb, "Intraday series (5‑minute intervals, oldest → latest):", &data.IntradaySeries.SeriesFields)
-	}
+	//if data.IntradaySeries != nil {
+		//formatSeriesData(&sb, "Intraday series (5‑minute intervals, oldest → latest):", &data.IntradaySeries.SeriesFields)
+	//}
 
 	// [修改] 将 15分钟 改为 30分钟
 	if data.MidTermSeries30m != nil {
 		formatSeriesData(&sb, "Mid‑term series (30‑minute intervals, oldest → latest):", &data.MidTermSeries30m.SeriesFields)
 	}
 
-	if data.MidTermSeries1h != nil {
-		formatSeriesData(&sb, "Mid‑term series (1‑hour intervals, oldest → latest):", &data.MidTermSeries1h.SeriesFields)
-	}
+	//if data.MidTermSeries1h != nil {
+		//formatSeriesData(&sb, "Mid‑term series (1‑hour intervals, oldest → latest):", &data.MidTermSeries1h.SeriesFields)
+	//}
 
 	if data.LongerTermContext != nil {
-		sb.WriteString("Longer‑term context (4‑hour timeframe):\n\n")
+		formatSeriesData(&sb, "Longer‑term series (4‑hour intervals, oldest → latest):", &data.LongerTermContext.SeriesFields)
 
 		sb.WriteString(fmt.Sprintf("20‑Period EMA: %.3f vs. 50‑Period EMA: %.3f\n\n",
 			data.LongerTermContext.EMA20, data.LongerTermContext.EMA50))
