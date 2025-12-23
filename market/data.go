@@ -632,42 +632,11 @@ func Format(data *Data, skipSymbolMention bool) string {
 		//formatSeriesData(&sb, "Mid‑term series (1‑hour intervals, oldest → latest):", &data.MidTermSeries1h.SeriesFields)
 	//}
 
+	// 4小时数据现在使用标准序列化输出
 	if data.LongerTermContext != nil {
 		formatSeriesData(&sb, "Longer‑term series (4‑hour intervals, oldest → latest):", &data.LongerTermContext.SeriesFields)
-
-		sb.WriteString(fmt.Sprintf("20‑Period EMA: %.3f vs. 50‑Period EMA: %.3f\n\n",
-			data.LongerTermContext.EMA20, data.LongerTermContext.EMA50))
-
-		sb.WriteString(fmt.Sprintf("3‑Period ATR: %.3f\n\n", data.LongerTermContext.ATR3))
-
-		if len(data.LongerTermContext.ATR14Values) > 0 {
-			sb.WriteString(fmt.Sprintf("ATR (14‑period): %s\n\n", formatFloatSlice(data.LongerTermContext.ATR14Values)))
-		}
-
-		sb.WriteString(fmt.Sprintf("Current Volume: %.3f vs. Average Volume: %.3f\n\n",
-			data.LongerTermContext.CurrentVolume, data.LongerTermContext.AverageVolume))
-
-		// if len(data.LongerTermContext.MACDValues) > 0 {
-		//	sb.WriteString(fmt.Sprintf("MACD indicators: %s\n\n", formatFloatSlice(data.LongerTermContext.MACDValues)))
-		// }
-
-		if len(data.LongerTermContext.RSI14Values) > 0 {
-			sb.WriteString(fmt.Sprintf("RSI indicators (14‑Period): %s\n\n", formatFloatSlice(data.LongerTermContext.RSI14Values)))
-		}
-
-		if len(data.LongerTermContext.ER10Values) > 0 {
-			sb.WriteString(fmt.Sprintf("Efficiency Ratio (10‑period): %s\n\n", formatFloatSlice(data.LongerTermContext.ER10Values)))
-		}
-
-		if len(data.LongerTermContext.BollingerPercentBs) > 0 {
-			sb.WriteString(fmt.Sprintf("Bollinger %%B: %s\n\n", formatFloatSlice(data.LongerTermContext.BollingerPercentBs)))
-		}
-
-		if len(data.LongerTermContext.BollingerBandwidths) > 0 {
-			sb.WriteString(fmt.Sprintf("Bollinger Bandwidth: %s\n\n", formatFloatSlice(data.LongerTermContext.BollingerBandwidths)))
-		}
 	}
-
+	
 	if data.DailyContext != nil {
 		sb.WriteString("\nDaily context (last 7 days):\n\n")
 
