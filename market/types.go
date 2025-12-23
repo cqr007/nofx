@@ -11,11 +11,11 @@ type Data struct {
 	PriceChange24h    float64 // 24小时价格变化百分比
 	CurrentEMA20      float64
 	CurrentMACD       float64
-	CurrentRSI7       float64	
+	CurrentRSI7       float64
 	ChanLunMACD_DIF   float64 // 快线 - 慢线
-    ChanLunMACD_DEA   float64 // 信号线
-    ChanLunMACD_Hist  float64 // 柱状图
-    ChanLunSignal     string  // "Golden Cross (Bullish)", "Death Cross (Bearish)", "Neutral"
+	ChanLunMACD_DEA   float64 // 信号线
+	ChanLunMACD_Hist  float64 // 柱状图
+	ChanLunSignal     string  // "Golden Cross (Bullish)", "Death Cross (Bearish)", "Neutral"
 	OpenInterest      *OIData
 	FundingRate       float64
 	IntradaySeries    *IntradayData
@@ -64,9 +64,9 @@ type SeriesFields struct {
 	ER10Values          []float64 // Efficiency Ratio (10期) 序列
 	BollingerPercentBs  []float64 // 布林带 %B 序列
 	BollingerBandwidths []float64 // 布林带宽度序列
-	MA5Values   		[]float64 // MA5 序列
-	MA34Values  		[]float64 // MA34 序列
-	MA170Values 		[]float64 // MA170 序列
+	MA5Values           []float64 // MA5 序列
+	MA34Values          []float64 // MA34 序列
+	MA170Values         []float64 // MA170 序列
 }
 
 // IntradayData 日内数据(5分钟间隔)
@@ -84,19 +84,10 @@ type MidTermData1h struct {
 	SeriesFields // 嵌入共享字段
 }
 
-// LongerTermData 长期数据(4小时时间框架)
+// [修改] LongerTermData 长期数据(4小时时间框架)
+// 改为嵌入 SeriesFields，与 5m/30m/1h 保持一致
 type LongerTermData struct {
-	EMA20               float64
-	EMA50               float64
-	ATR3                float64
-	ATR14Values         []float64
-	CurrentVolume       float64
-	AverageVolume       float64
-	MACDValues          []float64
-	RSI14Values         []float64
-	ER10Values          []float64 // Efficiency Ratio (10期) 序列
-	BollingerPercentBs  []float64 // 布林带 %B 序列
-	BollingerBandwidths []float64 // 布林带宽度序列
+	SeriesFields // 嵌入共享字段
 }
 
 // Binance API 响应结构
@@ -190,7 +181,7 @@ type AlertThresholds struct {
 type CleanupConfig struct {
 	InactiveTimeout   time.Duration `json:"inactive_timeout"`    // 不活跃超时时间
 	MinScoreThreshold float64       `json:"min_score_threshold"` // 最低评分阈值
-	NoAlertTimeout    time.Duration `json:"no_alert_timeout"`    // 无警报超时时间
+	NoAlertTimeout    time.Duration `json: "no_alert_timeout"`   // 无警报超时时间
 	CheckInterval     time.Duration `json:"check_interval"`      // 检查间隔
 }
 
