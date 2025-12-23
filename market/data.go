@@ -368,7 +368,8 @@ func calculateMidTermSeries1h(klines []Kline) *MidTermData1h {
 	}
 }
 
-// calculateLongerTermData 计算长期数据
+// [修改] calculateLongerTermData 计算长期数据 (4h)
+// 现在复用 calculateSeriesData，确保输出格式与其他周期一致
 func calculateLongerTermData(klines []Kline) *LongerTermData {
 	r := calculateSeriesData(klines)
 	return &LongerTermData{
@@ -386,54 +387,9 @@ func calculateLongerTermData(klines []Kline) *LongerTermData {
 			MA5Values:           r.ma5Values,
 			MA34Values:          r.ma34Values,
 			MA170Values:         r.ma170Values,
-	     },
-	  }
-   }
-
-	// 计算EMA
-	data.EMA20 = calculateEMA(klines, 20)
-	data.EMA50 = calculateEMA(klines, 50)
-
-	// 计算ATR
-	data.ATR3 = calculateATR(klines, 3)
-	data.ATR14Values = calculateATRSeries(klines, 14)
-
-	// 计算成交量
-	if len(klines) > 0 {
-		data.CurrentVolume = klines[len(klines)-1].Volume
-		// 计算平均成交量
-		sum := 0.0
-		for _, k := range klines {
-			sum += k.Volume
-		}
-		data.AverageVolume = sum / float64(len(klines))
+		},
 	}
-
-	// 计算MACD和RSI序列
-	start := len(klines) - 10
-	if start < 0 {
-		start = 0
-	}
-
-	for i := start; i < len(klines); i++ {
-		if i >= 25 {
-			macd := calculateMACD(klines[:i+1])
-			data.MACDValues = append(data.MACDValues, macd)
-		}
-		if i >= 14 {
-			rsi14 := calculateRSI(klines[:i+1], 14)
-			data.RSI14Values = append(data.RSI14Values, rsi14)
-		}
-	}
-
-	// 计算 Efficiency Ratio (10期) 序列
-	data.ER10Values = calculateERSeries(klines, 10)
-
-	// 计算 Bollinger Bands (20期, 2倍标准差) 序列
-	data.BollingerPercentBs, data.BollingerBandwidths = calculateBollingerSeries(klines, 20, 2.0)
-
-	return data
-}
+}	
 
 // getOpenInterestData 获取OI数据
 func getOpenInterestData(symbol string) (*OIData, error) {
